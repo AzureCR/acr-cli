@@ -41,7 +41,7 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 			var minutes int
 			_, e := fmt.Sscanf(ago, "%d.%d:%d", &days, &hours, &minutes)
 			if e != nil || days < 0 || hours < 0 || hours > 23 || minutes < 0 || minutes > 59 {
-				return errors.New("Please use the format dd:hh:mm and make sure that the specified Timespan is valid")
+				return errors.New("invalid format, correct format is dd.hh:mm")
 			}
 
 			timeToCompare := time.Now().UTC()

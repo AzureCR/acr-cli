@@ -22,8 +22,8 @@ const (
 	MediaTypeManifest = "application/vnd.docker.distribution.manifest.v2+json"
 )
 
-var errParse = errors.New("Error parsing")
-var errResponseCode = errors.New("Undefined response code")
+var errParse = errors.New("error parsing")
+var errResponseCode = errors.New("undefined response code")
 
 // BasicAuth returns the username and the passwrod encoded in base 64
 func BasicAuth(username string,
@@ -53,14 +53,14 @@ func ListTags(loginURL string,
 		var listTagResult Tags
 		switch tags.StatusCode {
 		case http.StatusOK:
-			if err := mapstructure.Decode(tags.Value, &listTagResult); err == nil {
+			if err = mapstructure.Decode(tags.Value, &listTagResult); err == nil {
 				return &listTagResult, nil
 			}
 			return nil, errParse
 
 		case http.StatusUnauthorized, http.StatusNotFound:
 			var apiError acrapi.Error
-			if err := mapstructure.Decode(tags.Value, &apiError); err == nil {
+			if err = mapstructure.Decode(tags.Value, &apiError); err == nil {
 				return nil, fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
 			}
 			return nil, errParse
@@ -94,14 +94,14 @@ func AcrGetTagAttributes(loginURL string,
 		var acrGetTagAttributes acrapi.TagAttributes
 		switch tagAttributes.StatusCode {
 		case http.StatusOK:
-			if err := mapstructure.Decode(tagAttributes.Value, &acrGetTagAttributes); err == nil {
+			if err = mapstructure.Decode(tagAttributes.Value, &acrGetTagAttributes); err == nil {
 				return &acrGetTagAttributes, nil
 			}
 			return nil, errParse
 
 		case http.StatusUnauthorized, http.StatusNotFound:
 			var apiError acrapi.Error
-			if err := mapstructure.Decode(tagAttributes.Value, &apiError); err == nil {
+			if err = mapstructure.Decode(tagAttributes.Value, &apiError); err == nil {
 				return nil, fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
 			}
 			return nil, errParse
@@ -138,7 +138,7 @@ func AcrDeleteTag(loginURL string,
 			return nil
 		case http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound, http.StatusMethodNotAllowed:
 			var apiError acrapi.Error
-			if err := mapstructure.Decode(tag, &apiError); err == nil {
+			if err = mapstructure.Decode(tag, &apiError); err == nil {
 				return fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
 			}
 			return errParse
@@ -175,14 +175,14 @@ func AcrListManifests(loginURL string,
 		switch manifests.StatusCode {
 		case http.StatusOK:
 			var acrListManifestsAttributesResult acrapi.ManifestAttributeList
-			if err := mapstructure.Decode(manifests.Value, &acrListManifestsAttributesResult); err == nil {
+			if err = mapstructure.Decode(manifests.Value, &acrListManifestsAttributesResult); err == nil {
 				return &acrListManifestsAttributesResult, nil
 			}
 			return nil, errParse
 
 		case http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound, http.StatusMethodNotAllowed:
 			var apiError acrapi.Error
-			if err := mapstructure.Decode(manifests.Value, &apiError); err == nil {
+			if err = mapstructure.Decode(manifests.Value, &apiError); err == nil {
 				return nil, fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
 			}
 			return nil, errParse
