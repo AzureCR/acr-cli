@@ -50,7 +50,7 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 			timeToCompare = timeToCompare.Add(time.Duration(-1*minutes) * time.Minute)
 
 			if !dangling {
-				resultTags, e := api.ListTags(loginURL, auth, repoName)
+				resultTags, e := api.ListTags(loginURL, auth, repoName, maxEntries)
 				if e != nil {
 					return e
 				}

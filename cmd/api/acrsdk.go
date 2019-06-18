@@ -17,7 +17,7 @@ import (
 const (
 	OrderByTimeAsc    = "timeasc"
 	OrderByTimeDesc   = "timedesc"
-	MaxEntries        = 1000
+	MaxEntries        = 100
 	HTTPSPrefix       = "https://"
 	MediaTypeManifest = "application/vnd.docker.distribution.manifest.v2+json"
 )
@@ -35,7 +35,8 @@ func BasicAuth(username string,
 // ListTags list all the tags associated to a repository
 func ListTags(loginURL string,
 	auth string,
-	repoName string) (*Tags, error) {
+	repoName string,
+	maxEntries int) (*Tags, error) {
 	hostname := GetHostname(loginURL)
 	client := acrapi.NewWithBaseURI(hostname,
 		repoName,
@@ -45,7 +46,7 @@ func ListTags(loginURL string,
 		"",
 		auth,
 		"",
-		"1000",
+		strconv.Itoa(maxEntries),
 		"",
 		"")
 	if tags, err := client.ListTags(context.Background()); err == nil {
