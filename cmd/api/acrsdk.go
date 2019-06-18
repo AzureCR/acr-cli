@@ -229,7 +229,7 @@ func DeleteManifest(loginURL string,
 			return nil
 		case http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound, http.StatusMethodNotAllowed:
 			var apiError acrapi.Error
-			if err := mapstructure.Decode(deleteManifest, &apiError); err == nil {
+			if err = mapstructure.Decode(deleteManifest, &apiError); err == nil {
 				return fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
 			}
 			return errParse

@@ -39,8 +39,7 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 			var days int
 			var hours int
 			var minutes int
-			_, e := fmt.Sscanf(ago, "%d.%d:%d", &days, &hours, &minutes)
-			if e != nil || days < 0 || hours < 0 || hours > 23 || minutes < 0 || minutes > 59 {
+			if _, e := fmt.Sscanf(ago, "%d.%d:%d", &days, &hours, &minutes); e != nil || days < 0 || hours < 0 || hours > 23 || minutes < 0 || minutes > 59 {
 				return errors.New("invalid format, correct format is dd.hh:mm")
 			}
 
