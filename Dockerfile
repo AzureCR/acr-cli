@@ -4,7 +4,6 @@ RUN apk add --no-cache \
 	make
 
 FROM gobuild-base AS acr-cli
-RUN go get github.com/mitchellh/mapstructure
 WORKDIR /go/src/github.com/AzureCR/acr-cli
 COPY . .
 RUN make binaries && mv bin/acr /usr/bin/acr

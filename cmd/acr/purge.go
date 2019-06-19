@@ -16,7 +16,10 @@ import (
 )
 
 const (
-	purgeLongMessage = `` // TODO
+	purgeLongMessage = `Purge the registry, given the registry name and a repository name this 
+command untags all the tags that match with the filter and that are older 
+than a duration, after that, all manifests that do not have any tags 
+associated with them also get deleted.`
 )
 
 var loginURL string
@@ -31,7 +34,7 @@ var maxEntries int
 func newPurgeCmd(out io.Writer) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "purge",
-		Short: "", // TODO
+		Short: "Delete images from a registry.",
 		Long:  purgeLongMessage,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var wg sync.WaitGroup
@@ -106,9 +109,9 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 	cmd.PersistentFlags().StringVarP(&password, "password", "p", "", "Registry password")
 	cmd.MarkPersistentFlagRequired("password")
 
-	cmd.Flags().StringVar(&ago, "ago", "1d0h0m", "The images that were created before this timeStamp will be deleted")
+	cmd.Flags().StringVar(&ago, "ago", "1d", "The images that were created before this timeStamp will be deleted")
 	cmd.Flags().BoolVar(&dangling, "dangling", false, "Just remove dangling manifests")
-	cmd.Flags().StringVarP(&filter, "filter", "f", "", "Given as a regular expression, if a tag matches the pattern and is older than ago it gets deleted.")
+	cmd.Flags().StringVarP(&filter, "filter", "f", "", "Given as a regular expression, if a tag matches the pattern and is older than the time specified in ago it gets deleted.")
 	cmd.Flags().IntVar(&maxEntries, "max-entries", 100, "Maximum images to verify")
 	cmd.Flags().StringVar(&repoName, "repository", "", "The repository which will be purged.")
 	cmd.MarkFlagRequired("repository")

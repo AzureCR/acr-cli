@@ -13,14 +13,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
-// The constants used in the sdk.
-const (
-	OrderByTimeAsc    = "timeasc"
-	OrderByTimeDesc   = "timedesc"
-	MaxEntries        = 100
-	HTTPSPrefix       = "https://"
-	MediaTypeManifest = "application/vnd.docker.distribution.manifest.v2+json"
-)
+const prefixHTTPS = "https://"
 
 var errParse = errors.New("error parsing")
 var errResponseCode = errors.New("undefined response code")
@@ -198,8 +191,8 @@ func AcrListManifests(loginURL string,
 // GetHostname return the hostname of a registry
 func GetHostname(loginURL string) string {
 	hostname := loginURL
-	if !strings.HasPrefix(loginURL, HTTPSPrefix) {
-		hostname = HTTPSPrefix + loginURL
+	if !strings.HasPrefix(loginURL, prefixHTTPS) {
+		hostname = prefixHTTPS + loginURL
 	}
 
 	return hostname
