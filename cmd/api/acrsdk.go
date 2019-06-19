@@ -13,7 +13,10 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
-const prefixHTTPS = "https://"
+const (
+	prefixHTTPS = "https://"
+	registryURL = ".azurecr.io"
+)
 
 var errParse = errors.New("error parsing")
 var errResponseCode = errors.New("undefined response code")
@@ -23,6 +26,14 @@ func BasicAuth(username string,
 	password string) string {
 	auth := username + ":" + password
 	return "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
+}
+
+// LoginURL returns the FQDN for a registry
+func LoginURL(registryName string) string {
+	if strings.Contains(registryName, ".") {
+		return registryName
+	}
+	return registryName + registryURL
 }
 
 // ListTags list all the tags associated to a repository

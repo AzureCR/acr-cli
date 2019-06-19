@@ -22,7 +22,7 @@ than a duration, after that, all manifests that do not have any tags
 associated with them also get deleted.`
 )
 
-var loginURL string
+var registryName string
 var username string
 var password string
 var ago string
@@ -38,6 +38,7 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 		Long:  purgeLongMessage,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var wg sync.WaitGroup
+			loginURL := api.LoginURL(registryName)
 			auth := api.BasicAuth(username, password)
 			if !dangling {
 				var days int
@@ -102,7 +103,7 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 		},
 	}
 
-	cmd.PersistentFlags().StringVarP(&loginURL, "registry", "r", "", "Registry login url")
+	cmd.PersistentFlags().StringVarP(&registryName, "registry", "r", "", "Registry name")
 	cmd.MarkPersistentFlagRequired("registry")
 	cmd.PersistentFlags().StringVarP(&username, "username", "u", "", "Registry username")
 	cmd.MarkPersistentFlagRequired("username")
