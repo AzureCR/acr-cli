@@ -4,10 +4,10 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -36,19 +36,29 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var wg sync.WaitGroup
 			auth := api.BasicAuth(username, password)
-			var days int
-			var hours int
-			var minutes int
-			if _, e := fmt.Sscanf(ago, "%d.%d:%d", &days, &hours, &minutes); e != nil || days < 0 || hours < 0 || hours > 23 || minutes < 0 || minutes > 59 {
-				return errors.New("invalid format, correct format is dd.hh:mm")
-			}
-
-			timeToCompare := time.Now().UTC()
-			timeToCompare = timeToCompare.Add(time.Duration(-1*days) * 24 * time.Hour)
-			timeToCompare = timeToCompare.Add(time.Duration(-1*hours) * time.Hour)
-			timeToCompare = timeToCompare.Add(time.Duration(-1*minutes) * time.Minute)
-
 			if !dangling {
+				var days int
+				var durationString string
+				if strings.Contains(ago, "d") {
+					if _, e := fmt.Sscanf(ago, "%dd%s", &days, &durationString); e != nil {
+						fmt.Sscanf(ago, "%dd", &days)
+						durationString = ""
+					}
+				} else {
+					days = 0
+					if _, e := fmt.Sscanf(ago, "%s", &durationString); e != nil {
+						return e
+					}
+				}
+				timeToCompare := time.Now().UTC()
+				timeToCompare = timeToCompare.Add(time.Duration(-1*days) * 24 * time.Hour)
+				if len(durationString) > 0 {
+					agoDuration, e := time.ParseDuration(durationString)
+					if e != nil {
+						return e
+					}
+					timeToCompare = timeToCompare.Add(-1 * agoDuration)
+				}
 				resultTags, e := api.ListTags(loginURL, auth, repoName, maxEntries)
 				if e != nil {
 					return e
@@ -96,7 +106,7 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 	cmd.PersistentFlags().StringVarP(&password, "password", "p", "", "Registry password")
 	cmd.MarkPersistentFlagRequired("password")
 
-	cmd.Flags().StringVar(&ago, "ago", "1.00:00", "The images that were created before this timeStamp will be deleted")
+	cmd.Flags().StringVar(&ago, "ago", "1d0h0m", "The images that were created before this timeStamp will be deleted")
 	cmd.Flags().BoolVar(&dangling, "dangling", false, "Just remove dangling manifests")
 	cmd.Flags().StringVarP(&filter, "filter", "f", "", "Given as a regular expression, if a tag matches the pattern and is older than ago it gets deleted.")
 	cmd.Flags().IntVar(&maxEntries, "max-entries", 100, "Maximum images to verify")
@@ -120,8 +130,7 @@ func Untag(wg *sync.WaitGroup, loginURL string, auth string, repoName string, ta
 		return
 	}
 	if t.Before(timeToCompare) {
-		e := api.AcrDeleteTag(loginURL, auth, repoName, tag)
-		if e != nil {
+		if e := api.AcrDeleteTag(loginURL, auth, repoName, tag); e != nil {
 			return
 		}
 		fmt.Printf("%s/%s:%s\n", loginURL, repoName, tag)
@@ -131,9 +140,7 @@ func Untag(wg *sync.WaitGroup, loginURL string, auth string, repoName string, ta
 // DeleteManifest is the function in charge of deleting a manifest asynchronously
 func DeleteManifest(wg *sync.WaitGroup, loginURL string, auth string, repoName string, digest string) {
 	defer wg.Done()
-	e := api.DeleteManifest(loginURL, auth, repoName, digest)
-	if e != nil {
-		fmt.Println(e)
+	if e := api.DeleteManifest(loginURL, auth, repoName, digest); e != nil {
 		return
 	}
 	fmt.Printf("%s/%s@%s\n", loginURL, repoName, digest)
