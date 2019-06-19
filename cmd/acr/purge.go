@@ -62,12 +62,10 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 					}
 					timeToCompare = timeToCompare.Add(-1 * agoDuration)
 				}
-
 				lastTag := ""
-				for resultTags, e := api.AcrListTags(loginURL, auth, repoName, "", lastTag); resultTags.Tags != nil && e == nil; {
-
+				resultTags, e := api.AcrListTags(loginURL, auth, repoName, "", lastTag)
+				for resultTags.Tags != nil && e == nil {
 					tags := *resultTags.Tags
-
 					for _, tag := range tags {
 						tagName := *tag.Name
 						//A regex filter was specified
@@ -79,7 +77,6 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 							} else {
 								return e
 							}
-
 						}
 						createdTime := *tag.LastUpdateTime
 						layout := time.RFC3339Nano
