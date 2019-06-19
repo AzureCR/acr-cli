@@ -29,7 +29,6 @@ var ago string
 var dangling bool
 var filter string
 var repoName string
-var maxEntries int
 
 func newPurgeCmd(out io.Writer) *cobra.Command {
 	cmd := &cobra.Command{
@@ -63,33 +62,42 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 					}
 					timeToCompare = timeToCompare.Add(-1 * agoDuration)
 				}
-				resultTags, e := api.ListTags(loginURL, auth, repoName, maxEntries)
-				if e != nil {
-					return e
-				}
-				tags := *resultTags.Tags
-				for _, tag := range tags {
-					//A regex filter was specified
-					if len(filter) > 0 {
-						matches, e := regexp.MatchString(filter, tag)
+
+				lastTag := ""
+				for resultTags, e := api.AcrListTags(loginURL, auth, repoName, "", lastTag); resultTags.Tags != nil && e == nil; {
+
+					tags := *resultTags.Tags
+
+					for _, tag := range tags {
+						tagName := *tag.Name
+						//A regex filter was specified
+						if len(filter) > 0 {
+							matches, e := regexp.MatchString(filter, tagName)
+							if e != nil {
+								return e
+							}
+							if !matches {
+								continue
+							}
+						}
+						createdTime := *tag.LastUpdateTime
+						layout := time.RFC3339Nano
+						t, e := time.Parse(layout, createdTime)
 						if e != nil {
 							return e
 						}
-						if !matches {
-							continue
+						if t.Before(timeToCompare) {
+							wg.Add(1)
+							go Untag(&wg, loginURL, auth, repoName, tagName)
 						}
 					}
-
-					wg.Add(1)
-					go Untag(&wg, loginURL, auth, repoName, tag, timeToCompare)
+					lastTag = *tags[len(tags)-1].Name
+					resultTags, e = api.AcrListTags(loginURL, auth, repoName, "", lastTag)
 				}
 			}
 			wg.Wait()
-			resultManifests, e := api.AcrListManifests(loginURL, auth, repoName, "", "", maxEntries)
-			if e != nil {
-				return e
-			}
-			if resultManifests.Manifests != nil {
+			lastManifestDigest := ""
+			for resultManifests, e := api.AcrListManifests(loginURL, auth, repoName, "", lastManifestDigest); resultManifests.Manifests != nil && e == nil; {
 				manifests := *resultManifests.Manifests
 				for _, manifest := range manifests {
 					if manifest.Tags == nil {
@@ -97,6 +105,8 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 						go DeleteManifest(&wg, loginURL, auth, repoName, *manifest.Digest)
 					}
 				}
+				lastManifestDigest = *manifests[len(manifests)-1].Digest
+				resultManifests, e = api.AcrListManifests(loginURL, auth, repoName, "", lastManifestDigest)
 			}
 			wg.Wait()
 			return nil
@@ -113,7 +123,6 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 	cmd.Flags().StringVar(&ago, "ago", "1d", "The images that were created before this timeStamp will be deleted")
 	cmd.Flags().BoolVar(&dangling, "dangling", false, "Just remove dangling manifests")
 	cmd.Flags().StringVarP(&filter, "filter", "f", "", "Given as a regular expression, if a tag matches the pattern and is older than the time specified in ago it gets deleted.")
-	cmd.Flags().IntVar(&maxEntries, "max-entries", 100, "Maximum images to verify")
 	cmd.Flags().StringVar(&repoName, "repository", "", "The repository which will be purged.")
 	cmd.MarkFlagRequired("repository")
 
@@ -121,24 +130,13 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 }
 
 // Untag is the function responsible for untagging an image
-func Untag(wg *sync.WaitGroup, loginURL string, auth string, repoName string, tag string, timeToCompare time.Time) {
+func Untag(wg *sync.WaitGroup, loginURL string, auth string, repoName string, tag string) {
 	defer wg.Done()
-	resultTagAttributes, e := api.AcrGetTagAttributes(loginURL, auth, repoName, tag)
-	if e != nil {
+	if e := api.AcrDeleteTag(loginURL, auth, repoName, tag); e != nil {
 		return
 	}
-	date := *(*resultTagAttributes.Tag).LastUpdateTime
-	layout := time.RFC3339Nano
-	t, e := time.Parse(layout, date)
-	if e != nil {
-		return
-	}
-	if t.Before(timeToCompare) {
-		if e := api.AcrDeleteTag(loginURL, auth, repoName, tag); e != nil {
-			return
-		}
-		fmt.Printf("%s/%s:%s\n", loginURL, repoName, tag)
-	}
+	fmt.Printf("%s/%s:%s\n", loginURL, repoName, tag)
+
 }
 
 // DeleteManifest is the function in charge of deleting a manifest asynchronously

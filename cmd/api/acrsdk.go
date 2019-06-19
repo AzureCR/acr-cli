@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 
 	acrapi "github.com/Azure/libacr/golang"
@@ -36,11 +35,22 @@ func LoginURL(registryName string) string {
 	return registryName + registryURL
 }
 
-// ListTags list all the tags associated to a repository
-func ListTags(loginURL string,
+// GetHostname return the hostname of a registry
+func GetHostname(loginURL string) string {
+	hostname := loginURL
+	if !strings.HasPrefix(loginURL, prefixHTTPS) {
+		hostname = prefixHTTPS + loginURL
+	}
+
+	return hostname
+}
+
+// AcrListTags list the tags of a repository with their attributes
+func AcrListTags(loginURL string,
 	auth string,
 	repoName string,
-	maxEntries int) (*Tags, error) {
+	orderBy string,
+	last string) (*acrapi.TagAttributeList, error) {
 	hostname := GetHostname(loginURL)
 	client := acrapi.NewWithBaseURI(hostname,
 		repoName,
@@ -49,12 +59,12 @@ func ListTags(loginURL string,
 		"",
 		"",
 		auth,
-		"",
-		strconv.Itoa(maxEntries),
-		"",
+		orderBy,
+		"100",
+		last,
 		"")
-	if tags, err := client.ListTags(context.Background()); err == nil {
-		var listTagResult Tags
+	if tags, err := client.AcrListTags(context.Background()); err == nil {
+		var listTagResult acrapi.TagAttributeList
 		switch tags.StatusCode {
 		case http.StatusOK:
 			if err = mapstructure.Decode(tags.Value, &listTagResult); err == nil {
@@ -65,47 +75,6 @@ func ListTags(loginURL string,
 		case http.StatusUnauthorized, http.StatusNotFound:
 			var apiError acrapi.Error
 			if err = mapstructure.Decode(tags.Value, &apiError); err == nil {
-				return nil, fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
-			}
-			return nil, errParse
-
-		default:
-			return nil, errResponseCode
-		}
-	} else {
-		return nil, err
-	}
-}
-
-// AcrGetTagAttributes gets the attributes of a tag.
-func AcrGetTagAttributes(loginURL string,
-	auth string,
-	repoName string,
-	reference string) (*acrapi.TagAttributes, error) {
-	hostname := GetHostname(loginURL)
-	client := acrapi.NewWithBaseURI(hostname,
-		repoName,
-		reference,
-		"",
-		"",
-		"",
-		auth,
-		"",
-		"",
-		"",
-		"")
-	if tagAttributes, err := client.AcrGetTagAttributes(context.Background()); err == nil {
-		var acrGetTagAttributes acrapi.TagAttributes
-		switch tagAttributes.StatusCode {
-		case http.StatusOK:
-			if err = mapstructure.Decode(tagAttributes.Value, &acrGetTagAttributes); err == nil {
-				return &acrGetTagAttributes, nil
-			}
-			return nil, errParse
-
-		case http.StatusUnauthorized, http.StatusNotFound:
-			var apiError acrapi.Error
-			if err = mapstructure.Decode(tagAttributes.Value, &apiError); err == nil {
 				return nil, fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
 			}
 			return nil, errParse
@@ -160,8 +129,7 @@ func AcrListManifests(loginURL string,
 	auth string,
 	repoName string,
 	orderBy string,
-	last string,
-	maxEntries int) (*acrapi.ManifestAttributeList, error) {
+	last string) (*acrapi.ManifestAttributeList, error) {
 	hostname := GetHostname(loginURL)
 	client := acrapi.NewWithBaseURI(hostname,
 		repoName,
@@ -171,7 +139,7 @@ func AcrListManifests(loginURL string,
 		"",
 		auth,
 		orderBy,
-		strconv.Itoa(maxEntries),
+		"100",
 		last,
 		"")
 
@@ -197,16 +165,6 @@ func AcrListManifests(loginURL string,
 	} else {
 		return nil, err
 	}
-}
-
-// GetHostname return the hostname of a registry
-func GetHostname(loginURL string) string {
-	hostname := loginURL
-	if !strings.HasPrefix(loginURL, prefixHTTPS) {
-		hostname = prefixHTTPS + loginURL
-	}
-
-	return hostname
 }
 
 // DeleteManifest deletes a manifest using the digest as a reference.
@@ -244,10 +202,4 @@ func DeleteManifest(loginURL string,
 	} else {
 		return err
 	}
-}
-
-// Tags is a struct used for decoding the response of client.ListTags
-type Tags struct {
-	Name *string   `json:"name,omitempty"`
-	Tags *[]string `json:"tags,omitempty"`
 }

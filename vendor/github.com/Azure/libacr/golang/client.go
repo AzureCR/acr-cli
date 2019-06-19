@@ -2022,16 +2022,10 @@ func (client BaseClient) ListTagsPreparer(ctx context.Context) (*http.Request, e
 		"name": autorest.Encode("path", client.Name),
 	}
 
-	queryParameters := map[string]interface{}{}
-	if len(client.N) > 0 {
-		queryParameters["n"] = autorest.Encode("query", client.N)
-	}
-
 	preparer := autorest.CreatePreparer(
 		autorest.AsGet(),
 		autorest.WithBaseURL(client.BaseURI),
 		autorest.WithPathParameters("/v2/{name}/tags/list", pathParameters),
-		autorest.WithQueryParameters(queryParameters),
 		autorest.WithHeader("authorization", client.Authorization))
 	return preparer.Prepare((&http.Request{}).WithContext(ctx))
 }
