@@ -62,6 +62,8 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 					}
 					timeToCompare = timeToCompare.Add(-1 * agoDuration)
 				}
+				var matches bool
+				var t time.Time
 				lastTag := ""
 				resultTags, e := api.AcrListTags(loginURL, auth, repoName, "", lastTag)
 				for resultTags.Tags != nil && e == nil {
@@ -70,7 +72,7 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 						tagName := *tag.Name
 						//A regex filter was specified
 						if len(filter) > 0 {
-							matches, e := regexp.MatchString(filter, tagName)
+							matches, e = regexp.MatchString(filter, tagName)
 							if e != nil {
 								return e
 							}
@@ -80,7 +82,7 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 						}
 						createdTime := *tag.LastUpdateTime
 						layout := time.RFC3339Nano
-						t, e := time.Parse(layout, createdTime)
+						t, e = time.Parse(layout, createdTime)
 						if e != nil {
 							return e
 						}
