@@ -70,23 +70,23 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 						tagName := *tag.Name
 						//A regex filter was specified
 						if len(filter) > 0 {
-							if matches, e := regexp.MatchString(filter, tagName); e == nil {
-								if !matches {
-									continue
-								}
-							} else {
+							matches, e := regexp.MatchString(filter, tagName)
+							if e != nil {
 								return e
+							}
+							if !matches {
+								continue
 							}
 						}
 						createdTime := *tag.LastUpdateTime
 						layout := time.RFC3339Nano
-						if t, e := time.Parse(layout, createdTime); e == nil {
-							if t.Before(timeToCompare) {
-								wg.Add(1)
-								go Untag(&wg, loginURL, auth, repoName, tagName)
-							}
-						} else {
+						t, e := time.Parse(layout, createdTime)
+						if e != nil {
 							return e
+						}
+						if t.Before(timeToCompare) {
+							wg.Add(1)
+							go Untag(&wg, loginURL, auth, repoName, tagName)
 						}
 					}
 					lastTag = *tags[len(tags)-1].Name
