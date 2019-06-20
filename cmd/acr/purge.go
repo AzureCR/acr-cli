@@ -17,16 +17,16 @@ import (
 )
 
 const (
-	purgeLongMessage = `acr purge: untag old images and delete dangling manifests.
-Examples
-	Delete all tags that are older than 1 day
-		acr purge -r MyRegistry --repository MyRepository --ago 1d
+	purgeLongMessage = `acr purge: untag old images and delete dangling manifests.`
+	exampleMessage   = `
+Delete all tags that are older than 1 day
+  acr purge -r MyRegistry --repository MyRepository --ago 1d
 
-	Delete all tags that are older than 1 day and begin with hello
-		acr purge -r MyRegistry --repository MyRepository --ago 1d --filter "^hello.*"
+Delete all tags that are older than 1 day and begin with hello
+  acr purge -r MyRegistry --repository MyRepository --ago 1d --filter "^hello.*"
 
-	Delete all dangling manifests
-		acr purge -r MyRegistry --repository MyRepository --dangling`
+Delete all dangling manifests
+  acr purge -r MyRegistry --repository MyRepository --dangling`
 )
 
 var (
@@ -41,9 +41,10 @@ var (
 
 func newPurgeCmd(out io.Writer) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "purge",
-		Short: "Delete images from a registry.",
-		Long:  purgeLongMessage,
+		Use:     "purge",
+		Short:   "Delete images from a registry.",
+		Long:    purgeLongMessage,
+		Example: exampleMessage,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := context.Background()
 			var wg sync.WaitGroup
