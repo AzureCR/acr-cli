@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"regexp"
@@ -16,10 +17,16 @@ import (
 )
 
 const (
-	purgeLongMessage = `Purge the registry, given the registry name and a repository name this 
-command untags all the tags that match with the filter and that are older 
-than a duration, after that, all manifests that do not have any tags 
-associated with them also get deleted.`
+	purgeLongMessage = `acr purge: untag old images and delete dangling manifests.
+Examples
+	Delete all tags that are older than 1 day
+		acr purge -r MyRegistry --repository MyRepository --ago 1d
+
+	Delete all tags that are older than 1 day and begin with hello
+		acr purge -r MyRegistry --repository MyRepository --ago 1d --filter "^hello.*"
+
+	Delete all dangling manifests
+		acr purge -r MyRegistry --repository MyRepository --dangling`
 )
 
 var (
@@ -38,6 +45,7 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 		Short: "Delete images from a registry.",
 		Long:  purgeLongMessage,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := context.Background()
 			var wg sync.WaitGroup
 			loginURL := api.LoginURL(registryName)
 			auth := api.BasicAuth(username, password)
@@ -67,7 +75,7 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 				var matches bool
 				var t time.Time
 				lastTag := ""
-				resultTags, e := api.AcrListTags(loginURL, auth, repoName, "", lastTag)
+				resultTags, e := api.AcrListTags(ctx, loginURL, auth, repoName, "", lastTag)
 				for resultTags.Tags != nil && e == nil {
 					tags := *resultTags.Tags
 					for _, tag := range tags {
@@ -90,25 +98,26 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 						}
 						if t.Before(timeToCompare) {
 							wg.Add(1)
-							go Untag(&wg, loginURL, auth, repoName, tagName)
+							go Untag(ctx, &wg, loginURL, auth, repoName, tagName)
 						}
 					}
 					lastTag = *tags[len(tags)-1].Name
-					resultTags, e = api.AcrListTags(loginURL, auth, repoName, "", lastTag)
+					resultTags, e = api.AcrListTags(ctx, loginURL, auth, repoName, "", lastTag)
 				}
 			}
 			wg.Wait()
 			lastManifestDigest := ""
-			for resultManifests, e := api.AcrListManifests(loginURL, auth, repoName, "", lastManifestDigest); resultManifests.Manifests != nil && e == nil; {
+			resultManifests, e := api.AcrListManifests(ctx, loginURL, auth, repoName, "", lastManifestDigest)
+			for resultManifests.Manifests != nil && e == nil {
 				manifests := *resultManifests.Manifests
 				for _, manifest := range manifests {
 					if manifest.Tags == nil {
 						wg.Add(1)
-						go DeleteManifest(&wg, loginURL, auth, repoName, *manifest.Digest)
+						go DeleteManifest(ctx, &wg, loginURL, auth, repoName, *manifest.Digest)
 					}
 				}
 				lastManifestDigest = *manifests[len(manifests)-1].Digest
-				resultManifests, e = api.AcrListManifests(loginURL, auth, repoName, "", lastManifestDigest)
+				resultManifests, e = api.AcrListManifests(ctx, loginURL, auth, repoName, "", lastManifestDigest)
 			}
 			wg.Wait()
 			return nil
@@ -132,9 +141,9 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 }
 
 // Untag is the function responsible for untagging an image
-func Untag(wg *sync.WaitGroup, loginURL string, auth string, repoName string, tag string) {
+func Untag(ctx context.Context, wg *sync.WaitGroup, loginURL string, auth string, repoName string, tag string) {
 	defer wg.Done()
-	if e := api.AcrDeleteTag(loginURL, auth, repoName, tag); e != nil {
+	if e := api.AcrDeleteTag(ctx, loginURL, auth, repoName, tag); e != nil {
 		return
 	}
 	fmt.Printf("%s/%s:%s\n", loginURL, repoName, tag)
@@ -142,9 +151,9 @@ func Untag(wg *sync.WaitGroup, loginURL string, auth string, repoName string, ta
 }
 
 // DeleteManifest is the function in charge of deleting a manifest asynchronously
-func DeleteManifest(wg *sync.WaitGroup, loginURL string, auth string, repoName string, digest string) {
+func DeleteManifest(ctx context.Context, wg *sync.WaitGroup, loginURL string, auth string, repoName string, digest string) {
 	defer wg.Done()
-	if e := api.DeleteManifest(loginURL, auth, repoName, digest); e != nil {
+	if e := api.DeleteManifest(ctx, loginURL, auth, repoName, digest); e != nil {
 		return
 	}
 	fmt.Printf("%s/%s@%s\n", loginURL, repoName, digest)

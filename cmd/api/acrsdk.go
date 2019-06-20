@@ -48,7 +48,8 @@ func GetHostname(loginURL string) string {
 }
 
 // AcrListTags list the tags of a repository with their attributes
-func AcrListTags(loginURL string,
+func AcrListTags(ctx context.Context,
+	loginURL string,
 	auth string,
 	repoName string,
 	orderBy string,
@@ -65,7 +66,7 @@ func AcrListTags(loginURL string,
 		"100",
 		last,
 		"")
-	if tags, err := client.AcrListTags(context.Background()); err == nil {
+	if tags, err := client.AcrListTags(ctx); err == nil {
 		var listTagResult acrapi.TagAttributeList
 		switch tags.StatusCode {
 		case http.StatusOK:
@@ -90,7 +91,8 @@ func AcrListTags(loginURL string,
 }
 
 // AcrDeleteTag deletes the tag by reference.
-func AcrDeleteTag(loginURL string,
+func AcrDeleteTag(ctx context.Context,
+	loginURL string,
 	auth string,
 	repoName string,
 	reference string) error {
@@ -107,7 +109,7 @@ func AcrDeleteTag(loginURL string,
 		"",
 		"")
 
-	if tag, err := client.AcrDeleteTag(context.Background()); err == nil {
+	if tag, err := client.AcrDeleteTag(ctx); err == nil {
 		switch tag.StatusCode {
 		case http.StatusAccepted:
 			return nil
@@ -127,7 +129,8 @@ func AcrDeleteTag(loginURL string,
 }
 
 // AcrListManifests list all the manifest in a repository with their attributes.
-func AcrListManifests(loginURL string,
+func AcrListManifests(ctx context.Context,
+	loginURL string,
 	auth string,
 	repoName string,
 	orderBy string,
@@ -145,7 +148,7 @@ func AcrListManifests(loginURL string,
 		last,
 		"")
 
-	if manifests, err := client.AcrListManifests(context.Background()); err == nil {
+	if manifests, err := client.AcrListManifests(ctx); err == nil {
 		switch manifests.StatusCode {
 		case http.StatusOK:
 			var acrListManifestsAttributesResult acrapi.ManifestAttributeList
@@ -170,7 +173,8 @@ func AcrListManifests(loginURL string,
 }
 
 // DeleteManifest deletes a manifest using the digest as a reference.
-func DeleteManifest(loginURL string,
+func DeleteManifest(ctx context.Context,
+	loginURL string,
 	auth string,
 	repoName string,
 	reference string) error {
@@ -187,7 +191,7 @@ func DeleteManifest(loginURL string,
 		"",
 		"")
 
-	if deleteManifest, err := client.DeleteManifest(context.Background()); err == nil {
+	if deleteManifest, err := client.DeleteManifest(ctx); err == nil {
 		switch deleteManifest.StatusCode {
 		case http.StatusAccepted:
 			return nil
