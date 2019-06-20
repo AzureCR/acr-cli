@@ -6,22 +6,19 @@ package api
 import (
 	"context"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
 	acrapi "github.com/Azure/libacr/golang"
 	"github.com/mitchellh/mapstructure"
+	"github.com/pkg/errors"
 )
 
 const (
 	prefixHTTPS = "https://"
 	registryURL = ".azurecr.io"
 )
-
-var errParse = errors.New("error parsing")
-var errResponseCode = errors.New("undefined response code")
 
 // BasicAuth returns the username and the passwrod encoded in base 64
 func BasicAuth(username string, password string) string {
@@ -73,17 +70,17 @@ func AcrListTags(ctx context.Context,
 			if err = mapstructure.Decode(tags.Value, &listTagResult); err == nil {
 				return &listTagResult, nil
 			}
-			return nil, errParse
+			return nil, err
 
 		case http.StatusUnauthorized, http.StatusNotFound:
 			var apiError acrapi.Error
 			if err = mapstructure.Decode(tags.Value, &apiError); err == nil {
 				return nil, fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
 			}
-			return nil, errParse
+			return nil, errors.Wrap(err, "unable to decode error")
 
 		default:
-			return nil, errResponseCode
+			return nil, fmt.Errorf("unexpected response code: %v", tags.StatusCode)
 		}
 	} else {
 		return nil, err
@@ -118,10 +115,10 @@ func AcrDeleteTag(ctx context.Context,
 			if err = mapstructure.Decode(tag, &apiError); err == nil {
 				return fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
 			}
-			return errParse
+			return errors.Wrap(err, "unable to decode error")
 
 		default:
-			return errResponseCode
+			return fmt.Errorf("unexpected response code: %v", tag.StatusCode)
 		}
 	} else {
 		return err
@@ -155,17 +152,17 @@ func AcrListManifests(ctx context.Context,
 			if err = mapstructure.Decode(manifests.Value, &acrListManifestsAttributesResult); err == nil {
 				return &acrListManifestsAttributesResult, nil
 			}
-			return nil, errParse
+			return nil, err
 
 		case http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound, http.StatusMethodNotAllowed:
 			var apiError acrapi.Error
 			if err = mapstructure.Decode(manifests.Value, &apiError); err == nil {
 				return nil, fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
 			}
-			return nil, errParse
+			return nil, errors.Wrap(err, "unable to decode error")
 
 		default:
-			return nil, errResponseCode
+			return nil, fmt.Errorf("unexpected response code: %v", manifests.StatusCode)
 		}
 	} else {
 		return nil, err
@@ -200,10 +197,10 @@ func DeleteManifest(ctx context.Context,
 			if err = mapstructure.Decode(deleteManifest, &apiError); err == nil {
 				return fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
 			}
-			return errParse
+			return errors.Wrap(err, "unable to decode error")
 
 		default:
-			return errResponseCode
+			return fmt.Errorf("unexpected response code: %v", deleteManifest.StatusCode)
 		}
 	} else {
 		return err
