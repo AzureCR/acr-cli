@@ -80,9 +80,9 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 								continue
 							}
 						}
-						createdTime := *tag.LastUpdateTime
+						lastUpdateTime := *tag.LastUpdateTime
 						layout := time.RFC3339Nano
-						t, e = time.Parse(layout, createdTime)
+						t, e = time.Parse(layout, lastUpdateTime)
 						if e != nil {
 							return e
 						}
