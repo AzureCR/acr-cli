@@ -22,13 +22,15 @@ than a duration, after that, all manifests that do not have any tags
 associated with them also get deleted.`
 )
 
-var registryName string
-var username string
-var password string
-var ago string
-var dangling bool
-var filter string
-var repoName string
+var (
+	registryName string
+	username     string
+	password     string
+	ago          string
+	dangling     bool
+	filter       string
+	repoName     string
+)
 
 func newPurgeCmd(out io.Writer) *cobra.Command {
 	cmd := &cobra.Command{

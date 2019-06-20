@@ -8,7 +8,7 @@ WORKDIR /go/src/github.com/AzureCR/acr-cli
 COPY . .
 RUN make binaries && mv bin/acr /usr/bin/acr
 
-FROM alpine:latest
+FROM alpine:3.9.4
 COPY --from=acr-cli /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=acr-cli /usr/bin/acr /usr/bin/acr
 ENTRYPOINT [ "acr" ]

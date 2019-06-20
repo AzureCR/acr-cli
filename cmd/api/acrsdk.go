@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
 package api
 
 import (
@@ -21,14 +24,14 @@ var errParse = errors.New("error parsing")
 var errResponseCode = errors.New("undefined response code")
 
 // BasicAuth returns the username and the passwrod encoded in base 64
-func BasicAuth(username string,
-	password string) string {
+func BasicAuth(username string, password string) string {
 	auth := username + ":" + password
 	return "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
 }
 
 // LoginURL returns the FQDN for a registry
 func LoginURL(registryName string) string {
+	// TODO: if the registry is in another cloud (i.e. dogfood) a full FQDN for the registry should be specified.
 	if strings.Contains(registryName, ".") {
 		return registryName
 	}
@@ -41,7 +44,6 @@ func GetHostname(loginURL string) string {
 	if !strings.HasPrefix(loginURL, prefixHTTPS) {
 		hostname = prefixHTTPS + loginURL
 	}
-
 	return hostname
 }
 
