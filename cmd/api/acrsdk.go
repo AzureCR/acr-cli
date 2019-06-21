@@ -63,27 +63,27 @@ func AcrListTags(ctx context.Context,
 		"100",
 		last,
 		"")
-	if tags, err := client.AcrListTags(ctx); err == nil {
+	if tags, e := client.AcrListTags(ctx); e == nil {
 		var listTagResult acrapi.TagAttributeList
 		switch tags.StatusCode {
 		case http.StatusOK:
-			if err = mapstructure.Decode(tags.Value, &listTagResult); err == nil {
+			if e = mapstructure.Decode(tags.Value, &listTagResult); e == nil {
 				return &listTagResult, nil
 			}
-			return nil, err
+			return nil, e
 
 		case http.StatusUnauthorized, http.StatusNotFound:
 			var apiError acrapi.Error
-			if err = mapstructure.Decode(tags.Value, &apiError); err == nil {
+			if e = mapstructure.Decode(tags.Value, &apiError); e == nil {
 				return nil, fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
 			}
-			return nil, errors.Wrap(err, "unable to decode error")
+			return nil, errors.Wrap(e, "unable to decode error")
 
 		default:
 			return nil, fmt.Errorf("unexpected response code: %v", tags.StatusCode)
 		}
 	} else {
-		return nil, err
+		return nil, e
 	}
 }
 
@@ -106,22 +106,22 @@ func AcrDeleteTag(ctx context.Context,
 		"",
 		"")
 
-	if tag, err := client.AcrDeleteTag(ctx); err == nil {
+	if tag, e := client.AcrDeleteTag(ctx); e == nil {
 		switch tag.StatusCode {
 		case http.StatusAccepted:
 			return nil
 		case http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound, http.StatusMethodNotAllowed:
 			var apiError acrapi.Error
-			if err = mapstructure.Decode(tag, &apiError); err == nil {
+			if e = mapstructure.Decode(tag, &apiError); e == nil {
 				return fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
 			}
-			return errors.Wrap(err, "unable to decode error")
+			return errors.Wrap(e, "unable to decode error")
 
 		default:
 			return fmt.Errorf("unexpected response code: %v", tag.StatusCode)
 		}
 	} else {
-		return err
+		return e
 	}
 }
 
@@ -145,27 +145,27 @@ func AcrListManifests(ctx context.Context,
 		last,
 		"")
 
-	if manifests, err := client.AcrListManifests(ctx); err == nil {
+	if manifests, e := client.AcrListManifests(ctx); e == nil {
 		switch manifests.StatusCode {
 		case http.StatusOK:
 			var acrListManifestsAttributesResult acrapi.ManifestAttributeList
-			if err = mapstructure.Decode(manifests.Value, &acrListManifestsAttributesResult); err == nil {
+			if e = mapstructure.Decode(manifests.Value, &acrListManifestsAttributesResult); e == nil {
 				return &acrListManifestsAttributesResult, nil
 			}
-			return nil, err
+			return nil, e
 
 		case http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound, http.StatusMethodNotAllowed:
 			var apiError acrapi.Error
-			if err = mapstructure.Decode(manifests.Value, &apiError); err == nil {
+			if e = mapstructure.Decode(manifests.Value, &apiError); e == nil {
 				return nil, fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
 			}
-			return nil, errors.Wrap(err, "unable to decode error")
+			return nil, errors.Wrap(e, "unable to decode error")
 
 		default:
 			return nil, fmt.Errorf("unexpected response code: %v", manifests.StatusCode)
 		}
 	} else {
-		return nil, err
+		return nil, e
 	}
 }
 
@@ -188,21 +188,21 @@ func DeleteManifest(ctx context.Context,
 		"",
 		"")
 
-	if deleteManifest, err := client.DeleteManifest(ctx); err == nil {
+	if deleteManifest, e := client.DeleteManifest(ctx); e == nil {
 		switch deleteManifest.StatusCode {
 		case http.StatusAccepted:
 			return nil
 		case http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound, http.StatusMethodNotAllowed:
 			var apiError acrapi.Error
-			if err = mapstructure.Decode(deleteManifest, &apiError); err == nil {
+			if e = mapstructure.Decode(deleteManifest, &apiError); e == nil {
 				return fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
 			}
-			return errors.Wrap(err, "unable to decode error")
+			return errors.Wrap(e, "unable to decode error")
 
 		default:
 			return fmt.Errorf("unexpected response code: %v", deleteManifest.StatusCode)
 		}
 	} else {
-		return err
+		return e
 	}
 }
