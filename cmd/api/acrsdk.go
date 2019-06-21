@@ -228,17 +228,17 @@ func AcrGetManifestMetadata(ctx context.Context,
 		"",
 		"")
 
-	if manifestMetadata, err := client.AcrGetManifestMetadata(context.Background()); err == nil {
+	if manifestMetadata, err := client.AcrGetManifestMetadata(ctx); err == nil {
 		var acrGetManifestMetadataResult string
 		switch manifestMetadata.StatusCode {
 		case http.StatusOK:
-			if err := mapstructure.Decode(manifestMetadata.Value, &acrGetManifestMetadataResult); err == nil {
+			if err = mapstructure.Decode(manifestMetadata.Value, &acrGetManifestMetadataResult); err == nil {
 				return &acrGetManifestMetadataResult, nil
 			}
 			return nil, err
 		case http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound, http.StatusMethodNotAllowed:
 			var apiError acrapi.Error
-			if err := mapstructure.Decode(manifestMetadata.Value, &apiError); err == nil {
+			if err = mapstructure.Decode(manifestMetadata.Value, &apiError); err == nil {
 				return nil, fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
 			}
 			return nil, errors.Wrap(err, "unable to decode error")
@@ -277,7 +277,7 @@ func AcrUpdateManifestMetadata(ctx context.Context,
 			return nil
 		case http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound, http.StatusMethodNotAllowed:
 			var metadataError acrapi.Error
-			if err := mapstructure.Decode(manifestMetadata, &metadataError); err == nil {
+			if err = mapstructure.Decode(manifestMetadata, &metadataError); err == nil {
 				return fmt.Errorf("%s %s", *(*metadataError.Errors)[0].Code, *(*metadataError.Errors)[0].Message)
 			}
 			return err
@@ -316,7 +316,7 @@ func AcrUpdateTagMetadata(ctx context.Context,
 			return nil
 		case http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound, http.StatusMethodNotAllowed:
 			var metadataError acrapi.Error
-			if err := mapstructure.Decode(tagMetadata, &metadataError); err == nil {
+			if err = mapstructure.Decode(tagMetadata, &metadataError); err == nil {
 				return fmt.Errorf("%s %s", *(*metadataError.Errors)[0].Code, *(*metadataError.Errors)[0].Message)
 			}
 			return err
@@ -329,7 +329,8 @@ func AcrUpdateTagMetadata(ctx context.Context,
 }
 
 // GetManifest returns the V2 manifest schema
-func GetManifest(loginURL string,
+func GetManifest(ctx context.Context,
+	loginURL string,
 	auth string,
 	repoName string,
 	reference string) (*ManifestV2, error) {
@@ -346,17 +347,17 @@ func GetManifest(loginURL string,
 		"",
 		"")
 
-	if manifest, err := client.GetManifest(context.Background()); err == nil {
+	if manifest, err := client.GetManifest(ctx); err == nil {
 		var getManifestResult ManifestV2
 		switch manifest.StatusCode {
 		case http.StatusOK:
-			if err := mapstructure.Decode(manifest.Value, &getManifestResult); err == nil {
+			if err = mapstructure.Decode(manifest.Value, &getManifestResult); err == nil {
 				return &getManifestResult, nil
 			}
 			return nil, err
 		case http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound:
 			var metadataError acrapi.Error
-			if err := mapstructure.Decode(manifest.Value, &metadataError); err == nil {
+			if err = mapstructure.Decode(manifest.Value, &metadataError); err == nil {
 				return nil, fmt.Errorf("%s %s", *(*metadataError.Errors)[0].Code, *(*metadataError.Errors)[0].Message)
 			}
 			return nil, errors.Wrap(err, "unable to decode error")
@@ -425,7 +426,7 @@ func AcrCrossReferenceLayer(ctx context.Context,
 		return nil
 	case http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound, http.StatusMethodNotAllowed:
 		var metadataError acrapi.Error
-		if err := mapstructure.Decode(result, &metadataError); err == nil {
+		if err = mapstructure.Decode(result, &metadataError); err == nil {
 			return fmt.Errorf("%s %s", *(*metadataError.Errors)[0].Code, *(*metadataError.Errors)[0].Message)
 		}
 		return err
@@ -492,7 +493,7 @@ func PutManifest(ctx context.Context,
 		return nil
 	case http.StatusBadRequest, http.StatusUnauthorized:
 		var metadataError acrapi.Error
-		if err := mapstructure.Decode(uploadManifest, &metadataError); err == nil {
+		if err = mapstructure.Decode(uploadManifest, &metadataError); err == nil {
 			return fmt.Errorf("%s %s", *(*metadataError.Errors)[0].Code, *(*metadataError.Errors)[0].Message)
 		}
 		return errors.Wrap(err, "unable to decode error")

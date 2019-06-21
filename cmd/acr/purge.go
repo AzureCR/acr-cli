@@ -137,18 +137,20 @@ func PurgeTags(ctx context.Context, wg *sync.WaitGroup, loginURL string, auth st
 			}
 			if t.Before(timeToCompare) {
 				if len(archive) > 0 {
-					manifestMetadata, e := api.AcrGetManifestMetadata(ctx, loginURL, auth, repoName, *tag.Digest, "acr")
+					var manifestMetadata *string
+					manifestMetadata, e = api.AcrGetManifestMetadata(ctx, loginURL, auth, repoName, *tag.Digest, "acr")
 					if e != nil {
 						//Metadata might be empty try initializing it
 						tagMetadata := api.AcrTags{Name: tagName, PurgeTime: timeToCompare.String()}
 						tagsMetadataArray := make([]api.AcrTags, 0)
 						metadataObject := &api.AcrManifestMetadata{Digest: *tag.Digest, OriginalRepo: repoName, Tags: append(tagsMetadataArray, tagMetadata)}
 						//metadataObject := &api.AcrManifestMetadata{Digest: *tag.Digest, OriginalRepo: repoName}
-						metadataString, e := json.Marshal(metadataObject)
+						var metadataBytes []byte
+						metadataBytes, e = json.Marshal(metadataObject)
 						if e != nil {
 							return e
 						}
-						e = api.AcrUpdateManifestMetadata(ctx, loginURL, auth, repoName, *tag.Digest, "acr", string(metadataString))
+						e = api.AcrUpdateManifestMetadata(ctx, loginURL, auth, repoName, *tag.Digest, "acr", string(metadataBytes))
 						if e != nil {
 							return e
 						}
@@ -226,6 +228,39 @@ func PurgeDanglingManifests(ctx context.Context,
 		manifests := *resultManifests.Manifests
 		for _, manifest := range manifests {
 			if manifest.Tags == nil {
+				var manifestMetadata *string
+				manifestMetadata, e = api.AcrGetManifestMetadata(ctx, loginURL, auth, repoName, *manifest.Digest, "acr")
+				if e == nil {
+					var metadataObject api.AcrManifestMetadata
+					e = json.Unmarshal([]byte(*manifestMetadata), &metadataObject)
+					if e != nil {
+						return e
+					}
+					//Tags empty len 0
+					manifestV2, e := api.GetManifest(loginURL, auth, repoName, *manifest.Digest)
+					if e != nil {
+						return e
+					}
+					e = api.AcrCrossReferenceLayer(ctx, loginURL, auth, archive, *(*manifestV2.Config).Digest, repoName)
+					if e != nil {
+						return e
+					}
+					for _, layer := range *manifestV2.Layers {
+						e = api.AcrCrossReferenceLayer(ctx, loginURL, auth, archive, *layer.Digest, repoName)
+						if e != nil {
+							return e
+						}
+					}
+					newTagName := repoName + (*manifest.Digest)[len("sha256:"):len("sha256:")+8]
+					e = api.PutManifest(ctx, loginURL, auth, archive, newTagName, *manifestV2)
+					if e != nil {
+						return e
+					}
+					e = api.AcrUpdateTagMetadata(ctx, loginURL, auth, archive, newTagName, "acr", *manifestMetadata)
+					if e != nil {
+						return e
+					}
+				}
 				wg.Add(1)
 				go HandleManifest(ctx, wg, errorChannel, loginURL, auth, repoName, *manifest.Digest)
 			}
