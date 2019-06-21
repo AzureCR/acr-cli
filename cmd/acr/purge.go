@@ -237,7 +237,7 @@ func PurgeDanglingManifests(ctx context.Context,
 						return e
 					}
 					//Tags empty len 0
-					manifestV2, e := api.GetManifest(loginURL, auth, repoName, *manifest.Digest)
+					manifestV2, e := api.GetManifest(ctx, loginURL, auth, repoName, *manifest.Digest)
 					if e != nil {
 						return e
 					}

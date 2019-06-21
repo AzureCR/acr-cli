@@ -486,6 +486,7 @@ func PutManifest(ctx context.Context,
 	uploadManifest, err = client.UploadManifestResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "acrapi.BaseClient", "UploadManifest", resp, "Failure responding to request")
+		return err
 	}
 
 	switch uploadManifest.StatusCode {
