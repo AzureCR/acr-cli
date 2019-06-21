@@ -164,11 +164,12 @@ func PurgeTags(ctx context.Context, wg *sync.WaitGroup, loginURL string, auth st
 						}
 						tagMetadata := api.AcrTags{Name: tagName, PurgeTime: timeToCompare.String()}
 						metadataObject.Tags = append(metadataObject.Tags, tagMetadata)
-						metadataString, e := json.Marshal(metadataObject)
+						var metadataBytes []byte
+						metadataBytes, e = json.Marshal(metadataObject)
 						if e != nil {
 							return e
 						}
-						e = api.AcrUpdateManifestMetadata(ctx, loginURL, auth, repoName, *tag.Digest, "acr", string(metadataString))
+						e = api.AcrUpdateManifestMetadata(ctx, loginURL, auth, repoName, *tag.Digest, "acr", string(metadataBytes))
 						if e != nil {
 							return e
 						}
@@ -237,7 +238,8 @@ func PurgeDanglingManifests(ctx context.Context,
 						return e
 					}
 					//Tags empty len 0
-					manifestV2, e := api.GetManifest(ctx, loginURL, auth, repoName, *manifest.Digest)
+					var manifestV2 *api.ManifestV2
+					manifestV2, e = api.GetManifest(ctx, loginURL, auth, repoName, *manifest.Digest)
 					if e != nil {
 						return e
 					}
