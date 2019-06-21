@@ -208,6 +208,7 @@ func DeleteManifest(ctx context.Context,
 	}
 }
 
+// AcrGetManifestMetadata get the metadata of a manifest
 func AcrGetManifestMetadata(ctx context.Context,
 	loginURL string,
 	auth string,
@@ -233,16 +234,14 @@ func AcrGetManifestMetadata(ctx context.Context,
 		case http.StatusOK:
 			if err := mapstructure.Decode(manifestMetadata.Value, &acrGetManifestMetadataResult); err == nil {
 				return &acrGetManifestMetadataResult, nil
-			} else {
-				return nil, err
 			}
+			return nil, err
 		case http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound, http.StatusMethodNotAllowed:
 			var apiError acrapi.Error
 			if err := mapstructure.Decode(manifestMetadata.Value, &apiError); err == nil {
 				return nil, fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
-			} else {
-				return nil, errors.Wrap(err, "unable to decode error")
 			}
+			return nil, errors.Wrap(err, "unable to decode error")
 		default:
 			return nil, fmt.Errorf("unexpected response code: %v", manifestMetadata.StatusCode)
 		}
@@ -251,6 +250,7 @@ func AcrGetManifestMetadata(ctx context.Context,
 	}
 }
 
+// AcrUpdateManifestMetadata create or update a manifest metadata
 func AcrUpdateManifestMetadata(ctx context.Context,
 	loginURL string,
 	auth string,
@@ -279,9 +279,8 @@ func AcrUpdateManifestMetadata(ctx context.Context,
 			var metadataError acrapi.Error
 			if err := mapstructure.Decode(manifestMetadata, &metadataError); err == nil {
 				return fmt.Errorf("%s %s", *(*metadataError.Errors)[0].Code, *(*metadataError.Errors)[0].Message)
-			} else {
-				return err
 			}
+			return err
 		default:
 			return fmt.Errorf("unexpected response code: %v", manifestMetadata.StatusCode)
 		}
@@ -290,6 +289,7 @@ func AcrUpdateManifestMetadata(ctx context.Context,
 	}
 }
 
+// AcrUpdateTagMetadata updates or creates metadata for a tag
 func AcrUpdateTagMetadata(ctx context.Context,
 	loginURL string,
 	auth string,
@@ -318,9 +318,8 @@ func AcrUpdateTagMetadata(ctx context.Context,
 			var metadataError acrapi.Error
 			if err := mapstructure.Decode(tagMetadata, &metadataError); err == nil {
 				return fmt.Errorf("%s %s", *(*metadataError.Errors)[0].Code, *(*metadataError.Errors)[0].Message)
-			} else {
-				return err
 			}
+			return err
 		default:
 			return fmt.Errorf("unexpected response code: %v", tagMetadata.StatusCode)
 		}
@@ -329,13 +328,12 @@ func AcrUpdateTagMetadata(ctx context.Context,
 	}
 }
 
-// Get manifest API call may return manifest v1 if reference is tag && Accept header doesn't contain "application/vnd.docker.distribution.manifest.v2+json".
-// For now, let's always return v2 manifest.
-func GetManifest(loginUrl string,
+// GetManifest returns the V2 manifest schema
+func GetManifest(loginURL string,
 	auth string,
 	repoName string,
 	reference string) (*ManifestV2, error) {
-	hostname := GetHostname(loginUrl)
+	hostname := GetHostname(loginURL)
 	client := acrapi.NewWithBaseURI(hostname,
 		repoName,
 		reference,
@@ -354,16 +352,14 @@ func GetManifest(loginUrl string,
 		case http.StatusOK:
 			if err := mapstructure.Decode(manifest.Value, &getManifestResult); err == nil {
 				return &getManifestResult, nil
-			} else {
-				return nil, err
 			}
+			return nil, err
 		case http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound:
 			var metadataError acrapi.Error
 			if err := mapstructure.Decode(manifest.Value, &metadataError); err == nil {
 				return nil, fmt.Errorf("%s %s", *(*metadataError.Errors)[0].Code, *(*metadataError.Errors)[0].Message)
-			} else {
-				return nil, errors.Wrap(err, "unable to decode error")
 			}
+			return nil, errors.Wrap(err, "unable to decode error")
 		default:
 			return nil, fmt.Errorf("unexpected response code: %v", manifest.StatusCode)
 		}
@@ -431,14 +427,14 @@ func AcrCrossReferenceLayer(ctx context.Context,
 		var metadataError acrapi.Error
 		if err := mapstructure.Decode(result, &metadataError); err == nil {
 			return fmt.Errorf("%s %s", *(*metadataError.Errors)[0].Code, *(*metadataError.Errors)[0].Message)
-		} else {
-			return err
 		}
+		return err
 	default:
 		return fmt.Errorf("unexpected response code: %v", result.StatusCode)
 	}
 }
 
+// PutManifest creates a tag in a repository
 func PutManifest(ctx context.Context,
 	loginURL string,
 	auth string,
@@ -498,9 +494,8 @@ func PutManifest(ctx context.Context,
 		var metadataError acrapi.Error
 		if err := mapstructure.Decode(uploadManifest, &metadataError); err == nil {
 			return fmt.Errorf("%s %s", *(*metadataError.Errors)[0].Code, *(*metadataError.Errors)[0].Message)
-		} else {
-			return errors.Wrap(err, "unable to decode error")
 		}
+		return errors.Wrap(err, "unable to decode error")
 	default:
 		return fmt.Errorf("unexpected response code: %v", uploadManifest.StatusCode)
 	}
