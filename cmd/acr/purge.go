@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"regexp"
@@ -37,6 +38,7 @@ var (
 	dangling     bool
 	filter       string
 	repoName     string
+	archive      string
 )
 
 func newPurgeCmd(out io.Writer) *cobra.Command {
@@ -75,8 +77,9 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 
 	cmd.Flags().StringVar(&ago, "ago", "1d", "The images that were created before this timeStamp will be deleted")
 	cmd.Flags().BoolVar(&dangling, "dangling", false, "Just remove dangling manifests")
-	cmd.Flags().StringVarP(&filter, "filter", "f", "", "Given as a regular expression, if a tag matches the pattern and is older than the time specified in ago it gets deleted.")
-	cmd.Flags().StringVar(&repoName, "repository", "", "The repository which will be purged.")
+	cmd.Flags().StringVar(&archive, "archive-repository", "", "Instead of deleting manifests they will be moved to the repo specified here")
+	cmd.Flags().StringVarP(&filter, "filter", "f", "", "Given as a regular expression, if a tag matches the pattern and is older than the time specified in ago it gets deleted")
+	cmd.Flags().StringVar(&repoName, "repository", "", "The repository which will be purged")
 	cmd.MarkFlagRequired("repository")
 
 	return cmd
@@ -133,6 +136,42 @@ func PurgeTags(ctx context.Context, wg *sync.WaitGroup, loginURL string, auth st
 				return e
 			}
 			if t.Before(timeToCompare) {
+				if len(archive) > 0 {
+					manifestMetadata, e := api.AcrGetManifestMetadata(ctx, loginURL, auth, repoName, *tag.Digest, "acr")
+					if e != nil {
+						//Metadata might be empty try initializing it
+						tagMetadata := api.AcrTags{Name: tagName, PurgeTime: timeToCompare.String()}
+						tagsMetadataArray := make([]api.AcrTags, 0)
+						metadataObject := &api.AcrManifestMetadata{Digest: *tag.Digest, OriginalRepo: repoName, Tags: append(tagsMetadataArray, tagMetadata)}
+						//metadataObject := &api.AcrManifestMetadata{Digest: *tag.Digest, OriginalRepo: repoName}
+						metadataString, e := json.Marshal(metadataObject)
+						if e != nil {
+							return e
+						}
+						e = api.AcrUpdateManifestMetadata(ctx, loginURL, auth, repoName, *tag.Digest, "acr", string(metadataString))
+						if e != nil {
+							return e
+						}
+
+					} else {
+						//Existent metadata update it
+						var metadataObject api.AcrManifestMetadata
+						e = json.Unmarshal([]byte(*manifestMetadata), &metadataObject)
+						if e != nil {
+							return e
+						}
+						tagMetadata := api.AcrTags{Name: tagName, PurgeTime: timeToCompare.String()}
+						metadataObject.Tags = append(metadataObject.Tags, tagMetadata)
+						metadataString, e := json.Marshal(metadataObject)
+						if e != nil {
+							return e
+						}
+						e = api.AcrUpdateManifestMetadata(ctx, loginURL, auth, repoName, *tag.Digest, "acr", string(metadataString))
+						if e != nil {
+							return e
+						}
+					}
+				}
 				wg.Add(1)
 				go Untag(ctx, wg, errorChannel, loginURL, auth, repoName, tagName)
 			}

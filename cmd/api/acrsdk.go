@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Azure/go-autorest/autorest"
 	acrapi "github.com/Azure/libacr/golang"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
@@ -205,4 +206,332 @@ func DeleteManifest(ctx context.Context,
 	} else {
 		return e
 	}
+}
+
+func AcrGetManifestMetadata(ctx context.Context,
+	loginURL string,
+	auth string,
+	repoName string,
+	reference string,
+	metadataName string) (*string, error) {
+	hostname := GetHostname(loginURL)
+	client := acrapi.NewWithBaseURI(hostname,
+		repoName,
+		reference,
+		"",
+		metadataName,
+		"",
+		auth,
+		"",
+		"",
+		"",
+		"")
+
+	if manifestMetadata, err := client.AcrGetManifestMetadata(context.Background()); err == nil {
+		var acrGetManifestMetadataResult string
+		switch manifestMetadata.StatusCode {
+		case http.StatusOK:
+			if err := mapstructure.Decode(manifestMetadata.Value, &acrGetManifestMetadataResult); err == nil {
+				return &acrGetManifestMetadataResult, nil
+			} else {
+				return nil, err
+			}
+		case http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound, http.StatusMethodNotAllowed:
+			var apiError acrapi.Error
+			if err := mapstructure.Decode(manifestMetadata.Value, &apiError); err == nil {
+				return nil, fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
+			} else {
+				return nil, errors.Wrap(err, "unable to decode error")
+			}
+		default:
+			return nil, fmt.Errorf("unexpected response code: %v", manifestMetadata.StatusCode)
+		}
+	} else {
+		return nil, err
+	}
+}
+
+func AcrUpdateManifestMetadata(ctx context.Context,
+	loginURL string,
+	auth string,
+	repoName string,
+	reference string,
+	metadataName string,
+	value string) error {
+	hostname := GetHostname(loginURL)
+	client := acrapi.NewWithBaseURI(hostname,
+		repoName,
+		reference,
+		"",
+		metadataName,
+		"",
+		auth,
+		"",
+		"",
+		"",
+		"")
+
+	if manifestMetadata, err := client.AcrUpdateManifestMetadata(ctx, value); err == nil {
+		switch manifestMetadata.StatusCode {
+		case http.StatusCreated:
+			return nil
+		case http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound, http.StatusMethodNotAllowed:
+			var metadataError acrapi.Error
+			if err := mapstructure.Decode(manifestMetadata, &metadataError); err == nil {
+				return fmt.Errorf("%s %s", *(*metadataError.Errors)[0].Code, *(*metadataError.Errors)[0].Message)
+			} else {
+				return err
+			}
+		default:
+			return fmt.Errorf("unexpected response code: %v", manifestMetadata.StatusCode)
+		}
+	} else {
+		return err
+	}
+}
+
+func AcrUpdateTagMetadata(ctx context.Context,
+	loginURL string,
+	auth string,
+	repoName string,
+	reference string,
+	metadataName string,
+	value string) error {
+	hostname := GetHostname(loginURL)
+	client := acrapi.NewWithBaseURI(hostname,
+		repoName,
+		reference,
+		"",
+		metadataName,
+		"",
+		auth,
+		"",
+		"",
+		"",
+		"")
+
+	if tagMetadata, err := client.AcrUpdateTagMetadata(ctx, value); err == nil {
+		switch tagMetadata.StatusCode {
+		case http.StatusCreated:
+			return nil
+		case http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound, http.StatusMethodNotAllowed:
+			var metadataError acrapi.Error
+			if err := mapstructure.Decode(tagMetadata, &metadataError); err == nil {
+				return fmt.Errorf("%s %s", *(*metadataError.Errors)[0].Code, *(*metadataError.Errors)[0].Message)
+			} else {
+				return err
+			}
+		default:
+			return fmt.Errorf("unexpected response code: %v", tagMetadata.StatusCode)
+		}
+	} else {
+		return err
+	}
+}
+
+// Get manifest API call may return manifest v1 if reference is tag && Accept header doesn't contain "application/vnd.docker.distribution.manifest.v2+json".
+// For now, let's always return v2 manifest.
+func GetManifest(loginUrl string,
+	auth string,
+	repoName string,
+	reference string) (*ManifestV2, error) {
+	hostname := GetHostname(loginUrl)
+	client := acrapi.NewWithBaseURI(hostname,
+		repoName,
+		reference,
+		"",
+		"",
+		"application/vnd.docker.distribution.manifest.v2+json",
+		auth,
+		"",
+		"",
+		"",
+		"")
+
+	if manifest, err := client.GetManifest(context.Background()); err == nil {
+		var getManifestResult ManifestV2
+		switch manifest.StatusCode {
+		case http.StatusOK:
+			if err := mapstructure.Decode(manifest.Value, &getManifestResult); err == nil {
+				return &getManifestResult, nil
+			} else {
+				return nil, err
+			}
+		case http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound:
+			var metadataError acrapi.Error
+			if err := mapstructure.Decode(manifest.Value, &metadataError); err == nil {
+				return nil, fmt.Errorf("%s %s", *(*metadataError.Errors)[0].Code, *(*metadataError.Errors)[0].Message)
+			} else {
+				return nil, errors.Wrap(err, "unable to decode error")
+			}
+		default:
+			return nil, fmt.Errorf("unexpected response code: %v", manifest.StatusCode)
+		}
+	} else {
+		return nil, err
+	}
+}
+
+// AcrCrossReferenceLayer ...
+func AcrCrossReferenceLayer(ctx context.Context,
+	loginURL string,
+	auth string,
+	repoName string,
+	reference string,
+	repoFrom string) error {
+	hostname := GetHostname(loginURL)
+	client := acrapi.NewWithBaseURI(hostname,
+		repoName,
+		reference,
+		"",
+		"",
+		"",
+		auth,
+		"",
+		"",
+		"",
+		"")
+
+	var result acrapi.SetObject
+	pathParameters := map[string]interface{}{
+		"name": autorest.Encode("path", client.Name),
+	}
+	queryParameters := map[string]interface{}{}
+	queryParameters["mount"] = autorest.Encode("query", reference)
+	queryParameters["from"] = autorest.Encode("query", repoFrom)
+
+	preparer := autorest.CreatePreparer(
+		autorest.AsPost(),
+		autorest.WithBaseURL(client.BaseURI),
+		autorest.WithPathParameters("/v2/{name}/blobs/uploads/", pathParameters),
+		autorest.WithQueryParameters(queryParameters),
+		autorest.WithHeader("authorization", client.Authorization))
+	req, err := preparer.Prepare((&http.Request{}).WithContext(ctx))
+	if err != nil {
+		err = autorest.NewErrorWithError(err, "acrapi.BaseClient", "StartBlobUpload", nil, "Failure preparing request")
+		return err
+	}
+	resp, err := client.StartBlobUploadSender(req)
+	if err != nil {
+		result.Response = autorest.Response{Response: resp}
+		err = autorest.NewErrorWithError(err, "acrapi.BaseClient", "StartBlobUpload", resp, "Failure sending request")
+		return err
+	}
+
+	result, err = client.StartBlobUploadResponder(resp)
+	if err != nil {
+		err = autorest.NewErrorWithError(err, "acrapi.BaseClient", "StartBlobUpload", resp, "Failure responding to request")
+		return err
+	}
+
+	switch result.StatusCode {
+	case http.StatusCreated:
+		return nil
+	case http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound, http.StatusMethodNotAllowed:
+		var metadataError acrapi.Error
+		if err := mapstructure.Decode(result, &metadataError); err == nil {
+			return fmt.Errorf("%s %s", *(*metadataError.Errors)[0].Code, *(*metadataError.Errors)[0].Message)
+		} else {
+			return err
+		}
+	default:
+		return fmt.Errorf("unexpected response code: %v", result.StatusCode)
+	}
+}
+
+func PutManifest(ctx context.Context,
+	loginURL string,
+	auth string,
+	repoName string,
+	reference string,
+	manifest ManifestV2) error {
+	hostname := GetHostname(loginURL)
+	client := acrapi.NewWithBaseURI(hostname,
+		repoName,
+		reference,
+		"",
+		"",
+		"",
+		auth,
+		"",
+		"",
+		"",
+		"")
+
+	var uploadManifest acrapi.SetObject
+
+	pathParameters := map[string]interface{}{
+		"name":      autorest.Encode("path", client.Name),
+		"reference": autorest.Encode("path", client.Reference),
+	}
+
+	preparer := autorest.CreatePreparer(
+		autorest.AsPut(),
+		autorest.WithBaseURL(client.BaseURI),
+		autorest.WithPathParameters("/v2/{name}/manifests/{reference}", pathParameters),
+		autorest.WithHeader("Content-Type", "application/vnd.docker.distribution.manifest.v2+json"),
+		autorest.WithHeader("authorization", client.Authorization))
+	preparer = autorest.DecoratePreparer(preparer,
+		autorest.WithJSON(manifest))
+	req, err := preparer.Prepare((&http.Request{}).WithContext(ctx))
+
+	if err != nil {
+		err = autorest.NewErrorWithError(err, "acrapi.BaseClient", "UploadManifest", nil, "Failure preparing request")
+		return err
+	}
+	resp, err := client.UploadManifestSender(req)
+	if err != nil {
+		uploadManifest.Response = autorest.Response{Response: resp}
+		err = autorest.NewErrorWithError(err, "acrapi.BaseClient", "UploadManifest", resp, "Failure sending request")
+		return err
+	}
+
+	uploadManifest, err = client.UploadManifestResponder(resp)
+	if err != nil {
+		err = autorest.NewErrorWithError(err, "acrapi.BaseClient", "UploadManifest", resp, "Failure responding to request")
+	}
+
+	switch uploadManifest.StatusCode {
+	case http.StatusAccepted, http.StatusCreated:
+		return nil
+	case http.StatusBadRequest, http.StatusUnauthorized:
+		var metadataError acrapi.Error
+		if err := mapstructure.Decode(uploadManifest, &metadataError); err == nil {
+			return fmt.Errorf("%s %s", *(*metadataError.Errors)[0].Code, *(*metadataError.Errors)[0].Message)
+		} else {
+			return errors.Wrap(err, "unable to decode error")
+		}
+	default:
+		return fmt.Errorf("unexpected response code: %v", uploadManifest.StatusCode)
+	}
+
+}
+
+// AcrManifestMetadata ...
+type AcrManifestMetadata struct {
+	Digest         string    `json:"digest,omitempty"`
+	OriginalRepo   string    `json:"repository,omitempty"`
+	LastUpdateTime string    `json:"lastUpdateTime,omitempty"`
+	Tags           []AcrTags `json:"tags,omitempty"`
+}
+
+// AcrTags ...
+type AcrTags struct {
+	Name      string `json:"name,omitempty"`
+	PurgeTime string `json:"purgeTime,omitempty"`
+}
+
+// ManifestV2 ...
+type ManifestV2 struct {
+	SchemaVersion *int32           `json:"schemaVersion,omitempty"`
+	MediaType     *string          `json:"mediaType,omitempty"`
+	Config        *LayerMetadata   `json:"config,omitempty"`
+	Layers        *[]LayerMetadata `json:"layers,omitempty"`
+}
+
+// LayerMetadata ...
+type LayerMetadata struct {
+	MediaType *string `json:"mediaType,omitempty"`
+	Size      *int32  `json:"size,omitempty"`
+	Digest    *string `json:"digest,omitempty"`
 }
