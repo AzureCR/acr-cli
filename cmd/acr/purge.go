@@ -213,18 +213,31 @@ func Untag(ctx context.Context,
 }
 
 // PurgeDanglingManifests runs if the dangling flag is specified and deletes all manifests that do not have any tags associated with them.
-func PurgeDanglingManifests(ctx context.Context, wg *sync.WaitGroup, loginURL string, auth string, repoName string) error {
+func PurgeDanglingManifests(ctx context.Context,
+	wg *sync.WaitGroup,
+	loginURL string,
+	auth string,
+	repoName string) error {
+	var errorChannel = make(chan error, 100)
+	defer close(errorChannel)
 	lastManifestDigest := ""
 	resultManifests, e := api.AcrListManifests(ctx, loginURL, auth, repoName, "", lastManifestDigest)
 	if e != nil {
 		return e
 	}
-	for resultManifests.Manifests != nil && e == nil {
+	for resultManifests != nil && resultManifests.Manifests != nil && e == nil {
 		manifests := *resultManifests.Manifests
 		for _, manifest := range manifests {
 			if manifest.Tags == nil {
 				wg.Add(1)
-				go HandleManifest(ctx, wg, manifest, loginURL, auth, repoName)
+				go HandleManifest(ctx, wg, errorChannel, manifest, loginURL, auth, repoName)
+			}
+		}
+		wg.Wait()
+		for len(errorChannel) > 0 {
+			e = <-errorChannel
+			if e != nil {
+				return e
 			}
 		}
 		lastManifestDigest = *manifests[len(manifests)-1].Digest
@@ -234,7 +247,13 @@ func PurgeDanglingManifests(ctx context.Context, wg *sync.WaitGroup, loginURL st
 }
 
 // HandleManifest deletes a manifest, if there is an archive repo and the manifest has existent metadata the manifest is moved instead.
-func HandleManifest(ctx context.Context, wg *sync.WaitGroup, manifest acrapi.ManifestAttributesBase, loginURL string, auth, repoName string) {
+func HandleManifest(ctx context.Context,
+	wg *sync.WaitGroup,
+	errorChannel chan error,
+	manifest acrapi.ManifestAttributesBase,
+	loginURL string,
+	auth string,
+	repoName string) {
 	defer wg.Done()
 	var e error
 	if len(archive) > 0 {
@@ -245,36 +264,43 @@ func HandleManifest(ctx context.Context, wg *sync.WaitGroup, manifest acrapi.Man
 			var metadataObject api.AcrManifestMetadata
 			e = json.Unmarshal([]byte(*manifestMetadata), &metadataObject)
 			if e != nil {
+				errorChannel <- e
 				return
 			}
 			//Tags empty len 0
 			var manifestV2 *api.ManifestV2
 			manifestV2, e = api.GetManifest(ctx, loginURL, auth, repoName, *manifest.Digest)
 			if e != nil {
+				errorChannel <- e
 				return
 			}
 			e = api.AcrCrossReferenceLayer(ctx, loginURL, auth, archive, *(*manifestV2.Config).Digest, repoName)
 			if e != nil {
+				errorChannel <- e
 				return
 			}
 			for _, layer := range *manifestV2.Layers {
 				e = api.AcrCrossReferenceLayer(ctx, loginURL, auth, archive, *layer.Digest, repoName)
 				if e != nil {
+					errorChannel <- e
 					return
 				}
 			}
 			newTagName := repoName + (*manifest.Digest)[len("sha256:"):len("sha256:")+8]
 			e = api.PutManifest(ctx, loginURL, auth, archive, newTagName, *manifestV2)
 			if e != nil {
+				errorChannel <- e
 				return
 			}
 			e = api.AcrUpdateTagMetadata(ctx, loginURL, auth, archive, newTagName, "acrarchiveinfo", *manifestMetadata)
 			if e != nil {
+				errorChannel <- e
 				return
 			}
 		}
 	}
 	if e := api.DeleteManifest(ctx, loginURL, auth, repoName, *manifest.Digest); e != nil {
+		errorChannel <- e
 		return
 	}
 	fmt.Printf("%s/%s@%s\n", loginURL, repoName, *manifest.Digest)
