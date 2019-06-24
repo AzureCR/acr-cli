@@ -204,7 +204,17 @@ func Untag(ctx context.Context,
 	repoName string,
 	tag string) {
 	defer wg.Done()
-	e := api.AcrDeleteTag(ctx, loginURL, auth, repoName, tag)
+	if e != nil {
+		errorChannel <- e
+		return
+	}
+	fmt.Printf("%s/%s:%s\n", loginURL, repoName, tag)
+}
+
+// PurgeDanglingManifests runs if the dangling flag is specified and deletes all manifests that do not have any tags associated with them.
+func PurgeDanglingManifests(ctx context.Context, wg *sync.WaitGroup, loginURL string, auth string, repoName string) error {
+	lastManifestDigest := ""
+	resultManifests, e := api.AcrListManifests(ctx, loginURL, auth, repoName, "", lastManifestDigest)
 	if e != nil {
 		errorChannel <- e
 		return
@@ -257,21 +267,4 @@ func HandleManifest(ctx context.Context, wg *sync.WaitGroup, manifest acrapi.Man
 		return
 	}
 	fmt.Printf("%s/%s@%s\n", loginURL, repoName, *manifest.Digest)
-}
-
-// HandleManifest deletes a manifest, if there is an archive repo and the manifest has existent metadata the manifest is moved instead.
-func HandleManifest(ctx context.Context,
-	wg *sync.WaitGroup,
-	errorChannel chan error,
-	loginURL string,
-	auth string,
-	repoName string,
-	digest string) {
-	defer wg.Done()
-	e := api.DeleteManifest(ctx, loginURL, auth, repoName, digest)
-	if e != nil {
-		errorChannel <- e
-		return
-	}
-	fmt.Printf("%s/%s@%s\n", loginURL, repoName, digest)
 }

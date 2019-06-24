@@ -504,7 +504,7 @@ func PutManifest(ctx context.Context,
 
 }
 
-// AcrManifestMetadata ...
+// AcrManifestMetadata the struct that is used to store original repository info
 type AcrManifestMetadata struct {
 	Digest         string    `json:"digest,omitempty"`
 	OriginalRepo   string    `json:"repository,omitempty"`
@@ -512,13 +512,13 @@ type AcrManifestMetadata struct {
 	Tags           []AcrTags `json:"tags,omitempty"`
 }
 
-// AcrTags ...
+// AcrTags stores the tag and the time it was archived
 type AcrTags struct {
 	Name        string `json:"name,omitempty"`
 	ArchiveTime string `json:"archiveTime,omitempty"`
 }
 
-// ManifestV2 ...
+// ManifestV2 follows the docker manifest schema version 2
 type ManifestV2 struct {
 	SchemaVersion *int32           `json:"schemaVersion,omitempty"`
 	MediaType     *string          `json:"mediaType,omitempty"`
@@ -526,7 +526,7 @@ type ManifestV2 struct {
 	Layers        *[]LayerMetadata `json:"layers,omitempty"`
 }
 
-// LayerMetadata ...
+// LayerMetadata follows the schema for every layer in the docker manifest schema
 type LayerMetadata struct {
 	MediaType *string `json:"mediaType,omitempty"`
 	Size      *int32  `json:"size,omitempty"`
