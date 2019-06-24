@@ -514,8 +514,8 @@ type AcrManifestMetadata struct {
 
 // AcrTags ...
 type AcrTags struct {
-	Name      string `json:"name,omitempty"`
-	PurgeTime string `json:"purgeTime,omitempty"`
+	Name        string `json:"name,omitempty"`
+	ArchiveTime string `json:"archiveTime,omitempty"`
 }
 
 // ManifestV2 ...
