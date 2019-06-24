@@ -242,6 +242,9 @@ func PurgeDanglingManifests(ctx context.Context,
 		}
 		lastManifestDigest = *manifests[len(manifests)-1].Digest
 		resultManifests, e = api.AcrListManifests(ctx, loginURL, auth, repoName, "", lastManifestDigest)
+		if e != nil {
+			return e
+		}
 	}
 	return nil
 }
