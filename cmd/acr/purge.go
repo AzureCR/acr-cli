@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -110,6 +109,7 @@ func PurgeTags(ctx context.Context, wg *sync.WaitGroup, loginURL string, auth st
 	var matches bool
 	var t time.Time
 	var errorChannel = make(chan error, 100)
+	defer close(errorChannel)
 	lastTag := ""
 	resultTags, e := api.AcrListTags(ctx, loginURL, auth, repoName, "", lastTag)
 	for resultTags != nil && resultTags.Tags != nil && e == nil {
@@ -137,14 +137,17 @@ func PurgeTags(ctx context.Context, wg *sync.WaitGroup, loginURL string, auth st
 				go Untag(ctx, wg, errorChannel, loginURL, auth, repoName, tagName)
 			}
 		}
+		wg.Wait()
+		for len(errorChannel) > 0 {
+			e := <-errorChannel
+			if e != nil {
+				return e
+			}
+		}
 		lastTag = *tags[len(tags)-1].Name
 		resultTags, e = api.AcrListTags(ctx, loginURL, auth, repoName, "", lastTag)
-	}
-	wg.Wait()
-	close(errorChannel)
-	for e = range errorChannel {
 		if e != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", e)
+			return e
 		}
 	}
 	return nil
@@ -160,10 +163,11 @@ func Untag(ctx context.Context,
 	tag string) {
 	defer wg.Done()
 	e := api.AcrDeleteTag(ctx, loginURL, auth, repoName, tag)
-	errorChannel <- e
-	if e == nil {
-		fmt.Printf("%s/%s:%s\n", loginURL, repoName, tag)
+	if e != nil {
+		errorChannel <- e
+		return
 	}
+	fmt.Printf("%s/%s:%s\n", loginURL, repoName, tag)
 }
 
 // PurgeDanglingManifests runs if the dangling flag is specified and deletes all manifests that do not have any tags associated with them.
@@ -173,6 +177,7 @@ func PurgeDanglingManifests(ctx context.Context,
 	auth string,
 	repoName string) error {
 	var errorChannel = make(chan error, 100)
+	defer close(errorChannel)
 	lastManifestDigest := ""
 	resultManifests, e := api.AcrListManifests(ctx, loginURL, auth, repoName, "", lastManifestDigest)
 	if e != nil {
@@ -186,17 +191,17 @@ func PurgeDanglingManifests(ctx context.Context,
 				go HandleManifest(ctx, wg, errorChannel, loginURL, auth, repoName, *manifest.Digest)
 			}
 		}
+		wg.Wait()
+		for len(errorChannel) > 0 {
+			e = <-errorChannel
+			if e != nil {
+				return e
+			}
+		}
 		lastManifestDigest = *manifests[len(manifests)-1].Digest
 		resultManifests, e = api.AcrListManifests(ctx, loginURL, auth, repoName, "", lastManifestDigest)
 		if e != nil {
 			return e
-		}
-	}
-	wg.Wait()
-	close(errorChannel)
-	for e = range errorChannel {
-		if e != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", e)
 		}
 	}
 	return nil
@@ -212,8 +217,9 @@ func HandleManifest(ctx context.Context,
 	digest string) {
 	defer wg.Done()
 	e := api.DeleteManifest(ctx, loginURL, auth, repoName, digest)
-	errorChannel <- e
 	if e != nil {
-		fmt.Printf("%s/%s@%s\n", loginURL, repoName, digest)
+		errorChannel <- e
+		return
 	}
+	fmt.Printf("%s/%s@%s\n", loginURL, repoName, digest)
 }
