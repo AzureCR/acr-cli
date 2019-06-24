@@ -204,6 +204,7 @@ func Untag(ctx context.Context,
 	repoName string,
 	tag string) {
 	defer wg.Done()
+	e := api.AcrDeleteTag(ctx, loginURL, auth, repoName, tag)
 	if e != nil {
 		errorChannel <- e
 		return
@@ -216,10 +217,20 @@ func PurgeDanglingManifests(ctx context.Context, wg *sync.WaitGroup, loginURL st
 	lastManifestDigest := ""
 	resultManifests, e := api.AcrListManifests(ctx, loginURL, auth, repoName, "", lastManifestDigest)
 	if e != nil {
-		errorChannel <- e
-		return
+		return e
 	}
-	fmt.Printf("%s/%s:%s\n", loginURL, repoName, tag)
+	for resultManifests.Manifests != nil && e == nil {
+		manifests := *resultManifests.Manifests
+		for _, manifest := range manifests {
+			if manifest.Tags == nil {
+				wg.Add(1)
+				go HandleManifest(ctx, wg, manifest, loginURL, auth, repoName)
+			}
+		}
+		lastManifestDigest = *manifests[len(manifests)-1].Digest
+		resultManifests, e = api.AcrListManifests(ctx, loginURL, auth, repoName, "", lastManifestDigest)
+	}
+	return nil
 }
 
 // HandleManifest deletes a manifest, if there is an archive repo and the manifest has existent metadata the manifest is moved instead.
