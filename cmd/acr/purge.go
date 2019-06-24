@@ -139,7 +139,7 @@ func PurgeTags(ctx context.Context, wg *sync.WaitGroup, loginURL string, auth st
 		}
 		wg.Wait()
 		for len(errorChannel) > 0 {
-			e := <-errorChannel
+			e = <-errorChannel
 			if e != nil {
 				return e
 			}
