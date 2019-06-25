@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"strings"
 
-	acrapi "github.com/Azure/libacr/golang"
+	acrapi "github.com/AzureCR/acr-cli/acr"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 )
