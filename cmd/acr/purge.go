@@ -29,7 +29,7 @@ Delete all dangling manifests
   acr purge -r MyRegistry --repository MyRepository --dangling`
 )
 
-var (
+type purgeParameters struct {
 	registryName string
 	username     string
 	password     string
@@ -37,9 +37,10 @@ var (
 	dangling     bool
 	filter       string
 	repoName     string
-)
+}
 
 func newPurgeCmd(out io.Writer) *cobra.Command {
+	var parameters purgeParameters
 	cmd := &cobra.Command{
 		Use:     "purge",
 		Short:   "Delete images from a registry.",
@@ -47,15 +48,15 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 		Example: exampleMessage,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := context.Background()
-			loginURL := api.LoginURL(registryName)
-			auth := api.BasicAuth(username, password)
-			if !dangling {
-				err := PurgeTags(ctx, loginURL, auth, repoName)
+			loginURL := api.LoginURL(parameters.registryName)
+			auth := api.BasicAuth(parameters.username, parameters.password)
+			if !parameters.dangling {
+				err := PurgeTags(ctx, loginURL, auth, parameters.repoName, parameters.ago, parameters.filter)
 				if err != nil {
 					return err
 				}
 			}
-			err := PurgeDanglingManifests(ctx, loginURL, auth, repoName)
+			err := PurgeDanglingManifests(ctx, loginURL, auth, parameters.repoName)
 			if err != nil {
 				return err
 			}
@@ -64,24 +65,24 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 		},
 	}
 
-	cmd.PersistentFlags().StringVarP(&registryName, "registry", "r", "", "Registry name")
+	cmd.PersistentFlags().StringVarP(&parameters.registryName, "registry", "r", "", "Registry name")
 	cmd.MarkPersistentFlagRequired("registry")
-	cmd.PersistentFlags().StringVarP(&username, "username", "u", "", "Registry username")
+	cmd.PersistentFlags().StringVarP(&parameters.username, "username", "u", "", "Registry username")
 	cmd.MarkPersistentFlagRequired("username")
-	cmd.PersistentFlags().StringVarP(&password, "password", "p", "", "Registry password")
+	cmd.PersistentFlags().StringVarP(&parameters.password, "password", "p", "", "Registry password")
 	cmd.MarkPersistentFlagRequired("password")
 
-	cmd.Flags().StringVar(&ago, "ago", "1d", "The images that were created before this timeStamp will be deleted")
-	cmd.Flags().BoolVar(&dangling, "dangling", false, "Just remove dangling manifests")
-	cmd.Flags().StringVarP(&filter, "filter", "f", "", "Given as a regular expression, if a tag matches the pattern and is older than the time specified in ago it gets deleted.")
-	cmd.Flags().StringVar(&repoName, "repository", "", "The repository which will be purged.")
+	cmd.Flags().StringVar(&parameters.ago, "ago", "1d", "The images that were created before this timeStamp will be deleted")
+	cmd.Flags().BoolVar(&parameters.dangling, "dangling", false, "Just remove dangling manifests")
+	cmd.Flags().StringVarP(&parameters.filter, "filter", "f", "", "Given as a regular expression, if a tag matches the pattern and is older than the time specified in ago it gets deleted.")
+	cmd.Flags().StringVar(&parameters.repoName, "repository", "", "The repository which will be purged.")
 	cmd.MarkFlagRequired("repository")
 
 	return cmd
 }
 
 // PurgeTags deletes all tags that are older than the ago value and that match the filter string (if present)
-func PurgeTags(ctx context.Context, loginURL string, auth string, repoName string) error {
+func PurgeTags(ctx context.Context, loginURL string, auth string, repoName string, ago string, filter string) error {
 	var wg sync.WaitGroup
 	agoDuration, err := ParseDuration(ago)
 	if err != nil {
