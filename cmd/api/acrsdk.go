@@ -80,7 +80,10 @@ func AcrListTags(ctx context.Context,
 		if err = mapstructure.Decode(tags.Value, &apiError); err != nil {
 			return nil, errors.Wrap(err, "unable to decode error")
 		}
-		return nil, fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
+		if apiError.Errors != nil && len(*apiError.Errors) > 0 {
+			return nil, fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
+		}
+		return nil, errors.New("unable to decode apiError")
 
 	default:
 		return nil, fmt.Errorf("unexpected response code: %v", tags.StatusCode)
@@ -117,7 +120,10 @@ func AcrDeleteTag(ctx context.Context,
 		if err = mapstructure.Decode(tag, &apiError); err != nil {
 			return errors.Wrap(err, "unable to decode error")
 		}
-		return fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
+		if apiError.Errors != nil && len(*apiError.Errors) > 0 {
+			return fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
+		}
+		return errors.New("unable to decode apiError")
 
 	default:
 		return fmt.Errorf("unexpected response code: %v", tag.StatusCode)
@@ -160,7 +166,10 @@ func AcrListManifests(ctx context.Context,
 		if err = mapstructure.Decode(manifests.Value, &apiError); err != nil {
 			return nil, errors.Wrap(err, "unable to decode error")
 		}
-		return nil, fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
+		if apiError.Errors != nil && len(*apiError.Errors) > 0 {
+			return nil, fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
+		}
+		return nil, errors.New("unable to decode apiError")
 
 	default:
 		return nil, fmt.Errorf("unexpected response code: %v", manifests.StatusCode)
@@ -198,7 +207,10 @@ func DeleteManifest(ctx context.Context,
 		if err = mapstructure.Decode(deleteManifest, &apiError); err != nil {
 			return errors.Wrap(err, "unable to decode error")
 		}
-		return fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
+		if apiError.Errors != nil && len(*apiError.Errors) > 0 {
+			return fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
+		}
+		return errors.New("unable to decode apiError")
 
 	default:
 		return fmt.Errorf("unexpected response code: %v", deleteManifest.StatusCode)

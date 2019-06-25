@@ -455,7 +455,6 @@ type Error struct {
 type ErrorErrorsItem struct {
 	Code    *string `json:"code,omitempty"`
 	Message *string `json:"message,omitempty"`
-	Detail  *string `json:"detail,omitempty"`
 }
 
 // GetBlobBadRequestResponse ...
