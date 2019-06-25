@@ -1,4 +1,4 @@
-// Package acrapi implements the Azure ARM Acrapi service API version 1.0.
+// Package acr implements the Azure ARM Acrapi service API version 1.0.
 //
 // V2 API definition for the Azure Container Registry runtime
 package acr
@@ -1907,7 +1907,8 @@ func (client BaseClient) GetManifestPreparer(ctx context.Context) (*http.Request
 		autorest.AsGet(),
 		autorest.WithBaseURL(client.BaseURI),
 		autorest.WithPathParameters("/v2/{name}/manifests/{reference}", pathParameters),
-		autorest.WithHeader("authorization", client.Authorization))
+		autorest.WithHeader("authorization", client.Authorization),
+		autorest.WithHeader("accept", "application/vnd.docker.distribution.manifest.v2+json"))
 	return preparer.Prepare((&http.Request{}).WithContext(ctx))
 }
 
@@ -2228,7 +2229,7 @@ func (client BaseClient) UploadManifestResponder(resp *http.Response) (result Se
 	err = autorest.Respond(
 		resp,
 		client.ByInspecting(),
-		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted, http.StatusBadRequest, http.StatusUnauthorized),
+		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted, http.StatusBadRequest, http.StatusUnauthorized, http.StatusCreated),
 		autorest.ByUnmarshallingJSON(&result.Value),
 		autorest.ByClosing())
 	result.Response = autorest.Response{Response: resp}
