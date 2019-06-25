@@ -11,8 +11,6 @@ github.com/Azure/go-autorest/autorest/date
 github.com/Azure/go-autorest/logger
 # github.com/Azure/go-autorest/tracing v0.1.0
 github.com/Azure/go-autorest/tracing
-# github.com/Azure/libacr v0.0.0-20180808220044-e0fc872c426d
-github.com/Azure/libacr/golang
 # github.com/census-instrumentation/opencensus-proto v0.2.0
 github.com/census-instrumentation/opencensus-proto/gen-go/agent/common/v1
 github.com/census-instrumentation/opencensus-proto/gen-go/agent/metrics/v1
