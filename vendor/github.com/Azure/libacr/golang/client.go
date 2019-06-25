@@ -1907,7 +1907,8 @@ func (client BaseClient) GetManifestPreparer(ctx context.Context) (*http.Request
 		autorest.AsGet(),
 		autorest.WithBaseURL(client.BaseURI),
 		autorest.WithPathParameters("/v2/{name}/manifests/{reference}", pathParameters),
-		autorest.WithHeader("authorization", client.Authorization))
+		autorest.WithHeader("authorization", client.Authorization),
+		autorest.WithHeader("accept", "application/vnd.docker.distribution.manifest.v2+json"))
 	return preparer.Prepare((&http.Request{}).WithContext(ctx))
 }
 

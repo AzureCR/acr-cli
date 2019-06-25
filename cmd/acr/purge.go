@@ -75,14 +75,15 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 	cmd.MarkPersistentFlagRequired("username")
 	cmd.PersistentFlags().StringVarP(&password, "password", "p", "", "Registry password")
 	cmd.MarkPersistentFlagRequired("password")
+	cmd.PersistentFlags().StringVar(&repoName, "repository", "", "The repository which will be purged")
+	cmd.MarkPersistentFlagRequired("repository")
+	cmd.PersistentFlags().StringVar(&archive, "archive-repository", "", "Instead of deleting manifests they will be moved to the repo specified here")
 
 	cmd.Flags().StringVar(&ago, "ago", "1d", "The images that were created before this timeStamp will be deleted")
 	cmd.Flags().BoolVar(&dangling, "dangling", false, "Just remove dangling manifests")
-	cmd.Flags().StringVar(&archive, "archive-repository", "", "Instead of deleting manifests they will be moved to the repo specified here")
 	cmd.Flags().StringVarP(&filter, "filter", "f", "", "Given as a regular expression, if a tag matches the pattern and is older than the time specified in ago it gets deleted")
-	cmd.Flags().StringVar(&repoName, "repository", "", "The repository which will be purged")
-	cmd.MarkFlagRequired("repository")
 
+	cmd.AddCommand(newUnarchiveCmd(out))
 	return cmd
 }
 
