@@ -16,17 +16,17 @@ func TestBasicAuth(t *testing.T) {
 	}
 }
 
-func TestGetHostname(t *testing.T) {
+func TestLoginURLWithPrefix(t *testing.T) {
 	expectedReturn := "https://registry.azurecr.io"
 	originalHostname := "registry.azurecr.io"
-	hostname := GetHostname(originalHostname)
+	hostname := LoginURLWithPrefix(originalHostname)
 
 	if hostname != expectedReturn {
 		t.Fatalf("GetHostname of %s incorrect, got %s, expected %s", originalHostname, hostname, expectedReturn)
 	}
 
 	originalHostname = "https://registry.azurecr.io"
-	hostname = GetHostname(originalHostname)
+	hostname = LoginURLWithPrefix(originalHostname)
 
 	if hostname != expectedReturn {
 		t.Fatalf("GetHostname of %s incorrect, got %s, expected %s", originalHostname, hostname, expectedReturn)
