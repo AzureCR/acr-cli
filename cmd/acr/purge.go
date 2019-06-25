@@ -47,19 +47,17 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 		Example: exampleMessage,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := context.Background()
-			var e error
-			var wg sync.WaitGroup
 			loginURL := api.LoginURL(registryName)
 			auth := api.BasicAuth(username, password)
 			if !dangling {
-				e = PurgeTags(ctx, &wg, loginURL, auth, repoName)
-				if e != nil {
-					return e
+				err := PurgeTags(ctx, loginURL, auth, repoName)
+				if err != nil {
+					return err
 				}
 			}
-			e = PurgeDanglingManifests(ctx, &wg, loginURL, auth, repoName)
-			if e != nil {
-				return e
+			err := PurgeDanglingManifests(ctx, loginURL, auth, repoName)
+			if err != nil {
+				return err
 			}
 
 			return nil
@@ -83,74 +81,87 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 }
 
 // PurgeTags deletes all tags that are older than the ago value and that match the filter string (if present)
-func PurgeTags(ctx context.Context, wg *sync.WaitGroup, loginURL string, auth string, repoName string) error {
-	var days int
-	var durationString string
-	if strings.Contains(ago, "d") {
-		if _, e := fmt.Sscanf(ago, "%dd%s", &days, &durationString); e != nil {
-			fmt.Sscanf(ago, "%dd", &days)
-			durationString = ""
-		}
-	} else {
-		days = 0
-		if _, e := fmt.Sscanf(ago, "%s", &durationString); e != nil {
-			return e
-		}
+func PurgeTags(ctx context.Context, loginURL string, auth string, repoName string) error {
+	var wg sync.WaitGroup
+	agoDuration, err := ParseDuration(ago)
+	if err != nil {
+		return err
 	}
 	timeToCompare := time.Now().UTC()
-	timeToCompare = timeToCompare.Add(time.Duration(-1*days) * 24 * time.Hour)
-	if len(durationString) > 0 {
-		agoDuration, e := time.ParseDuration(durationString)
-		if e != nil {
-			return e
-		}
-		timeToCompare = timeToCompare.Add(-1 * agoDuration)
+	timeToCompare = timeToCompare.Add(agoDuration)
+	regex, err := regexp.Compile(filter)
+	if err != nil {
+		return err
 	}
 	var matches bool
-	var t time.Time
+	var lastUpdateTime time.Time
 	var errorChannel = make(chan error, 100)
 	defer close(errorChannel)
 	lastTag := ""
-	resultTags, e := api.AcrListTags(ctx, loginURL, auth, repoName, "", lastTag)
-	for resultTags != nil && resultTags.Tags != nil && e == nil {
+	resultTags, err := api.AcrListTags(ctx, loginURL, auth, repoName, "", lastTag)
+	if err != nil {
+		return err
+	}
+	for resultTags != nil && resultTags.Tags != nil {
 		tags := *resultTags.Tags
 		for _, tag := range tags {
 			tagName := *tag.Name
 			//A regex filter was specified
 			if len(filter) > 0 {
-				matches, e = regexp.MatchString(filter, tagName)
-				if e != nil {
-					return e
-				}
+				matches = regex.MatchString(tagName)
 				if !matches {
 					continue
 				}
 			}
-			lastUpdateTime := *tag.LastUpdateTime
-			layout := time.RFC3339Nano
-			t, e = time.Parse(layout, lastUpdateTime)
-			if e != nil {
-				return e
+			lastUpdateTime, err = time.Parse(time.RFC3339Nano, *tag.LastUpdateTime)
+			if err != nil {
+				return err
 			}
-			if t.Before(timeToCompare) {
+			if lastUpdateTime.Before(timeToCompare) {
 				wg.Add(1)
-				go Untag(ctx, wg, errorChannel, loginURL, auth, repoName, tagName)
+				go Untag(ctx, &wg, errorChannel, loginURL, auth, repoName, tagName)
 			}
 		}
 		wg.Wait()
 		for len(errorChannel) > 0 {
-			e = <-errorChannel
-			if e != nil {
-				return e
+			err = <-errorChannel
+			if err != nil {
+				return err
 			}
 		}
 		lastTag = *tags[len(tags)-1].Name
-		resultTags, e = api.AcrListTags(ctx, loginURL, auth, repoName, "", lastTag)
-		if e != nil {
-			return e
+		resultTags, err = api.AcrListTags(ctx, loginURL, auth, repoName, "", lastTag)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+// ParseDuration analog to time.ParseDuration() but with days added
+func ParseDuration(ago string) (time.Duration, error) {
+	var days int
+	var durationString string
+	if strings.Contains(ago, "d") {
+		if _, err := fmt.Sscanf(ago, "%dd%s", &days, &durationString); err != nil {
+			fmt.Sscanf(ago, "%dd", &days)
+			durationString = ""
+		}
+	} else {
+		days = 0
+		if _, err := fmt.Sscanf(ago, "%s", &durationString); err != nil {
+			return time.Duration(0), err
+		}
+	}
+	duration := time.Duration(days) * 24 * time.Hour
+	if len(durationString) > 0 {
+		agoDuration, err := time.ParseDuration(durationString)
+		if err != nil {
+			return time.Duration(0), err
+		}
+		duration = duration + agoDuration
+	}
+	return (-1 * duration), nil
 }
 
 // Untag is the function responsible for untagging an image
@@ -162,46 +173,43 @@ func Untag(ctx context.Context,
 	repoName string,
 	tag string) {
 	defer wg.Done()
-	e := api.AcrDeleteTag(ctx, loginURL, auth, repoName, tag)
-	if e != nil {
-		errorChannel <- e
+	err := api.AcrDeleteTag(ctx, loginURL, auth, repoName, tag)
+	if err != nil {
+		errorChannel <- err
 		return
 	}
 	fmt.Printf("%s/%s:%s\n", loginURL, repoName, tag)
 }
 
 // PurgeDanglingManifests runs if the dangling flag is specified and deletes all manifests that do not have any tags associated with them.
-func PurgeDanglingManifests(ctx context.Context,
-	wg *sync.WaitGroup,
-	loginURL string,
-	auth string,
-	repoName string) error {
+func PurgeDanglingManifests(ctx context.Context, loginURL string, auth string, repoName string) error {
 	var errorChannel = make(chan error, 100)
 	defer close(errorChannel)
+	var wg sync.WaitGroup
 	lastManifestDigest := ""
-	resultManifests, e := api.AcrListManifests(ctx, loginURL, auth, repoName, "", lastManifestDigest)
-	if e != nil {
-		return e
+	resultManifests, err := api.AcrListManifests(ctx, loginURL, auth, repoName, "", lastManifestDigest)
+	if err != nil {
+		return err
 	}
-	for resultManifests != nil && resultManifests.Manifests != nil && e == nil {
+	for resultManifests != nil && resultManifests.Manifests != nil {
 		manifests := *resultManifests.Manifests
 		for _, manifest := range manifests {
 			if manifest.Tags == nil {
 				wg.Add(1)
-				go HandleManifest(ctx, wg, errorChannel, loginURL, auth, repoName, *manifest.Digest)
+				go HandleManifest(ctx, &wg, errorChannel, loginURL, auth, repoName, *manifest.Digest)
 			}
 		}
 		wg.Wait()
 		for len(errorChannel) > 0 {
-			e = <-errorChannel
-			if e != nil {
-				return e
+			err = <-errorChannel
+			if err != nil {
+				return err
 			}
 		}
 		lastManifestDigest = *manifests[len(manifests)-1].Digest
-		resultManifests, e = api.AcrListManifests(ctx, loginURL, auth, repoName, "", lastManifestDigest)
-		if e != nil {
-			return e
+		resultManifests, err = api.AcrListManifests(ctx, loginURL, auth, repoName, "", lastManifestDigest)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
@@ -216,9 +224,9 @@ func HandleManifest(ctx context.Context,
 	repoName string,
 	digest string) {
 	defer wg.Done()
-	e := api.DeleteManifest(ctx, loginURL, auth, repoName, digest)
-	if e != nil {
-		errorChannel <- e
+	err := api.DeleteManifest(ctx, loginURL, auth, repoName, digest)
+	if err != nil {
+		errorChannel <- err
 		return
 	}
 	fmt.Printf("%s/%s@%s\n", loginURL, repoName, digest)

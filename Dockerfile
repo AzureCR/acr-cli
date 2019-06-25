@@ -9,6 +9,6 @@ COPY . .
 RUN make binaries && mv bin/acr /usr/bin/acr
 
 FROM alpine:3.9.4
-COPY --from=acr-cli /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+RUN apk --update add ca-certificates
 COPY --from=acr-cli /usr/bin/acr /usr/bin/acr
 ENTRYPOINT [ "acr" ]

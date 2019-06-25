@@ -35,13 +35,13 @@ func LoginURL(registryName string) string {
 	return registryName + registryURL
 }
 
-// GetHostname return the hostname of a registry
-func GetHostname(loginURL string) string {
-	hostname := loginURL
+// LoginURLWithPrefix return the hostname of a registry
+func LoginURLWithPrefix(loginURL string) string {
+	urlWithPrefix := loginURL
 	if !strings.HasPrefix(loginURL, prefixHTTPS) {
-		hostname = prefixHTTPS + loginURL
+		urlWithPrefix = prefixHTTPS + loginURL
 	}
-	return hostname
+	return urlWithPrefix
 }
 
 // AcrListTags list the tags of a repository with their attributes
@@ -51,7 +51,7 @@ func AcrListTags(ctx context.Context,
 	repoName string,
 	orderBy string,
 	last string) (*acrapi.TagAttributeList, error) {
-	hostname := GetHostname(loginURL)
+	hostname := LoginURLWithPrefix(loginURL)
 	client := acrapi.NewWithBaseURI(hostname,
 		repoName,
 		"",
@@ -63,27 +63,27 @@ func AcrListTags(ctx context.Context,
 		"100",
 		last,
 		"")
-	if tags, e := client.AcrListTags(ctx); e == nil {
-		var listTagResult acrapi.TagAttributeList
-		switch tags.StatusCode {
-		case http.StatusOK:
-			if e = mapstructure.Decode(tags.Value, &listTagResult); e == nil {
-				return &listTagResult, nil
-			}
-			return nil, e
-
-		case http.StatusUnauthorized, http.StatusNotFound:
-			var apiError acrapi.Error
-			if e = mapstructure.Decode(tags.Value, &apiError); e == nil {
-				return nil, fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
-			}
-			return nil, errors.Wrap(e, "unable to decode error")
-
-		default:
-			return nil, fmt.Errorf("unexpected response code: %v", tags.StatusCode)
+	tags, err := client.AcrListTags(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var listTagResult acrapi.TagAttributeList
+	switch tags.StatusCode {
+	case http.StatusOK:
+		if err = mapstructure.Decode(tags.Value, &listTagResult); err != nil {
+			return nil, err
 		}
-	} else {
-		return nil, e
+		return &listTagResult, nil
+
+	case http.StatusUnauthorized, http.StatusNotFound:
+		var apiError acrapi.Error
+		if err = mapstructure.Decode(tags.Value, &apiError); err != nil {
+			return nil, errors.Wrap(err, "unable to decode error")
+		}
+		return nil, fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
+
+	default:
+		return nil, fmt.Errorf("unexpected response code: %v", tags.StatusCode)
 	}
 }
 
@@ -93,7 +93,7 @@ func AcrDeleteTag(ctx context.Context,
 	auth string,
 	repoName string,
 	reference string) error {
-	hostname := GetHostname(loginURL)
+	hostname := LoginURLWithPrefix(loginURL)
 	client := acrapi.NewWithBaseURI(hostname,
 		repoName,
 		reference,
@@ -105,23 +105,22 @@ func AcrDeleteTag(ctx context.Context,
 		"",
 		"",
 		"")
-
-	if tag, e := client.AcrDeleteTag(ctx); e == nil {
-		switch tag.StatusCode {
-		case http.StatusAccepted:
-			return nil
-		case http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound, http.StatusMethodNotAllowed:
-			var apiError acrapi.Error
-			if e = mapstructure.Decode(tag, &apiError); e == nil {
-				return fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
-			}
-			return errors.Wrap(e, "unable to decode error")
-
-		default:
-			return fmt.Errorf("unexpected response code: %v", tag.StatusCode)
+	tag, err := client.AcrDeleteTag(ctx)
+	if err != nil {
+		return err
+	}
+	switch tag.StatusCode {
+	case http.StatusAccepted:
+		return nil
+	case http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound, http.StatusMethodNotAllowed:
+		var apiError acrapi.Error
+		if err = mapstructure.Decode(tag, &apiError); err != nil {
+			return errors.Wrap(err, "unable to decode error")
 		}
-	} else {
-		return e
+		return fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
+
+	default:
+		return fmt.Errorf("unexpected response code: %v", tag.StatusCode)
 	}
 }
 
@@ -132,7 +131,7 @@ func AcrListManifests(ctx context.Context,
 	repoName string,
 	orderBy string,
 	last string) (*acrapi.ManifestAttributeList, error) {
-	hostname := GetHostname(loginURL)
+	hostname := LoginURLWithPrefix(loginURL)
 	client := acrapi.NewWithBaseURI(hostname,
 		repoName,
 		"",
@@ -144,28 +143,27 @@ func AcrListManifests(ctx context.Context,
 		"100",
 		last,
 		"")
-
-	if manifests, e := client.AcrListManifests(ctx); e == nil {
-		switch manifests.StatusCode {
-		case http.StatusOK:
-			var acrListManifestsAttributesResult acrapi.ManifestAttributeList
-			if e = mapstructure.Decode(manifests.Value, &acrListManifestsAttributesResult); e == nil {
-				return &acrListManifestsAttributesResult, nil
-			}
-			return nil, e
-
-		case http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound, http.StatusMethodNotAllowed:
-			var apiError acrapi.Error
-			if e = mapstructure.Decode(manifests.Value, &apiError); e == nil {
-				return nil, fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
-			}
-			return nil, errors.Wrap(e, "unable to decode error")
-
-		default:
-			return nil, fmt.Errorf("unexpected response code: %v", manifests.StatusCode)
+	manifests, err := client.AcrListManifests(ctx)
+	if err != nil {
+		return nil, err
+	}
+	switch manifests.StatusCode {
+	case http.StatusOK:
+		var acrListManifestsAttributesResult acrapi.ManifestAttributeList
+		if err = mapstructure.Decode(manifests.Value, &acrListManifestsAttributesResult); err != nil {
+			return nil, err
 		}
-	} else {
-		return nil, e
+		return &acrListManifestsAttributesResult, nil
+
+	case http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound, http.StatusMethodNotAllowed:
+		var apiError acrapi.Error
+		if err = mapstructure.Decode(manifests.Value, &apiError); err != nil {
+			return nil, errors.Wrap(err, "unable to decode error")
+		}
+		return nil, fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
+
+	default:
+		return nil, fmt.Errorf("unexpected response code: %v", manifests.StatusCode)
 	}
 }
 
@@ -175,7 +173,7 @@ func DeleteManifest(ctx context.Context,
 	auth string,
 	repoName string,
 	reference string) error {
-	hostname := GetHostname(loginURL)
+	hostname := LoginURLWithPrefix(loginURL)
 	client := acrapi.NewWithBaseURI(hostname,
 		repoName,
 		reference,
@@ -187,22 +185,22 @@ func DeleteManifest(ctx context.Context,
 		"",
 		"",
 		"")
+	deleteManifest, err := client.DeleteManifest(ctx)
+	if err != nil {
+		return err
+	}
+	switch deleteManifest.StatusCode {
+	case http.StatusAccepted:
+		return nil
 
-	if deleteManifest, e := client.DeleteManifest(ctx); e == nil {
-		switch deleteManifest.StatusCode {
-		case http.StatusAccepted:
-			return nil
-		case http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound, http.StatusMethodNotAllowed:
-			var apiError acrapi.Error
-			if e = mapstructure.Decode(deleteManifest, &apiError); e == nil {
-				return fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
-			}
-			return errors.Wrap(e, "unable to decode error")
-
-		default:
-			return fmt.Errorf("unexpected response code: %v", deleteManifest.StatusCode)
+	case http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound, http.StatusMethodNotAllowed:
+		var apiError acrapi.Error
+		if err = mapstructure.Decode(deleteManifest, &apiError); err != nil {
+			return errors.Wrap(err, "unable to decode error")
 		}
-	} else {
-		return e
+		return fmt.Errorf("%s %s", *(*apiError.Errors)[0].Code, *(*apiError.Errors)[0].Message)
+
+	default:
+		return fmt.Errorf("unexpected response code: %v", deleteManifest.StatusCode)
 	}
 }
