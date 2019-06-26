@@ -81,7 +81,7 @@ func newPurgeCmd(out io.Writer) *cobra.Command {
 	return cmd
 }
 
-// PurgeTags deletes all tags that are older than the ago value and that match the filter string (if present)
+// PurgeTags deletes all tags that are older than the ago value and that match the filter string (if present).
 func PurgeTags(ctx context.Context, loginURL string, auth string, repoName string, ago string, filter string) error {
 	var wg sync.WaitGroup
 	agoDuration, err := ParseDuration(ago)
@@ -139,7 +139,7 @@ func PurgeTags(ctx context.Context, loginURL string, auth string, repoName strin
 	return nil
 }
 
-// ParseDuration analog to time.ParseDuration() but with days added
+// ParseDuration analog to time.ParseDuration() but with days added.
 func ParseDuration(ago string) (time.Duration, error) {
 	var days int
 	var durationString string
@@ -165,7 +165,7 @@ func ParseDuration(ago string) (time.Duration, error) {
 	return (-1 * duration), nil
 }
 
-// Untag is the function responsible for untagging an image
+// Untag is the function responsible for untagging an image.
 func Untag(ctx context.Context,
 	wg *sync.WaitGroup,
 	errorChannel chan error,

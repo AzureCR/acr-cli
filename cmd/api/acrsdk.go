@@ -20,13 +20,13 @@ const (
 	registryURL = ".azurecr.io"
 )
 
-// BasicAuth returns the username and the passwrod encoded in base 64
+// BasicAuth returns the username and the passwrod encoded in base 64.
 func BasicAuth(username string, password string) string {
 	auth := username + ":" + password
 	return "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
 }
 
-// LoginURL returns the FQDN for a registry
+// LoginURL returns the FQDN for a registry.
 func LoginURL(registryName string) string {
 	// TODO: if the registry is in another cloud (i.e. dogfood) a full FQDN for the registry should be specified.
 	if strings.Contains(registryName, ".") {
@@ -35,7 +35,7 @@ func LoginURL(registryName string) string {
 	return registryName + registryURL
 }
 
-// LoginURLWithPrefix return the hostname of a registry
+// LoginURLWithPrefix return the hostname of a registry.
 func LoginURLWithPrefix(loginURL string) string {
 	urlWithPrefix := loginURL
 	if !strings.HasPrefix(loginURL, prefixHTTPS) {
@@ -44,7 +44,7 @@ func LoginURLWithPrefix(loginURL string) string {
 	return urlWithPrefix
 }
 
-// AcrListTags list the tags of a repository with their attributes
+// AcrListTags list the tags of a repository with their attributes.
 func AcrListTags(ctx context.Context,
 	loginURL string,
 	auth string,
